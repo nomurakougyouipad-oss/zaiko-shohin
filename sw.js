@@ -4,7 +4,7 @@
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v11';
+const VERSION = 'v12';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
@@ -13,14 +13,14 @@ const CACHE = 'zaiko-shohin-' + VERSION;
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=11',
+  './app.css?v=12',
   './manifest.webmanifest',
-  './firebase-config.js?v=11',
-  './js/app.js?v=11',
-  './js/util.js?v=11',
-  './js/firebase.js?v=11',
-  './js/store.js?v=11',
-  './js/image.js?v=11',
+  './firebase-config.js?v=12',
+  './js/app.js?v=12',
+  './js/util.js?v=12',
+  './js/firebase.js?v=12',
+  './js/store.js?v=12',
+  './js/image.js?v=12',
   './icons/icon-9a-48.png',
   './icons/icon-9a-120.png',
   './icons/icon-9a-180.png',
@@ -49,10 +49,21 @@ self.addEventListener('fetch', (e) => {
   // 自オリジン以外（Firebase, Google Fonts 等）はネットワーク優先で素通し
   if (url.origin !== self.location.origin) return;
 
-  // ページ遷移（ナビゲーション）: ネットワーク優先、失敗時 index.html
+  // ページ遷移（ナビゲーション）: キャッシュ優先で即起動し、
+  // 背後で最新の index.html を取得して次回起動に反映する
+  // （PWA起動時にネットワーク待ちの白画面を出さないため）
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).catch(() => caches.match('./index.html'))
+      caches.match('./index.html').then((cached) => {
+        const network = fetch(req).then((res) => {
+          if (res && res.status === 200 && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          }
+          return res;
+        }).catch(() => cached);
+        return cached || network;
+      })
     );
     return;
   }

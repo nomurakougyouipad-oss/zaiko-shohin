@@ -45,26 +45,8 @@ a:hover { color: var(--green); text-decoration: underline; }
 .right { text-align: right; }
 
 /* ---------- 起動画面（スプラッシュ） ----------
-   白背景にアプリアイコンのマーク（STK＋上下矢印）のみ。読み込み完了後、
-   Xの起動画面のようにマークが手前にズームイン（scale 1→9）しながら
-   全体がフェードアウトする */
-#splash {
-  position: fixed; inset: 0; z-index: 999;
-  display: flex; align-items: center; justify-content: center;
-  background: #fff;
-  opacity: 1;
-  transition: opacity .45s ease-in;
-}
-#splash .splash-logo {
-  /* 画面幅の約27%（PCでは大きくなりすぎないよう上限240px） */
-  width: min(27vw, 240px); height: auto; display: block;
-  transform: scale(1);
-  transform-origin: center center;
-  will-change: transform, opacity;
-  transition: transform .45s ease-in;
-}
-#splash.splash-hide { opacity: 0; pointer-events: none; }
-#splash.splash-hide .splash-logo { transform: scale(9); }
+   スタイルは index.html にインラインで記述している（外部CSS読み込み前から
+   1フレーム目で正しく表示するため）。ここには置かないこと。 */
 
 /* ---------- ボタン ---------- */
 .btn {
