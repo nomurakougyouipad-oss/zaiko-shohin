@@ -40,6 +40,31 @@ a:hover { color: var(--green); text-decoration: underline; }
 .num { font-variant-numeric: tabular-nums; }
 .right { text-align: right; }
 
+/* ---------- 起動画面（スプラッシュ） ---------- */
+#splash {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0;
+  background: linear-gradient(150deg, #33c274 0%, #177a49 55%, #0e3b28 100%);
+  opacity: 1;
+  transition: opacity .4s ease;
+}
+#splash.splash-hide { opacity: 0; pointer-events: none; }
+.splash-mark {
+  /* icon-9a は白地＋緑マークのPNG。そのまま「白い角板」として使う（角丸なし） */
+  width: 96px; height: 96px; display: block;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
+}
+.splash-title {
+  margin-top: 24px;
+  color: #fff; font-weight: 900; font-size: 22px; letter-spacing: .06em;
+}
+.splash-sub {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, .85); font-weight: 500; font-size: 13px; letter-spacing: .1em;
+}
+
 /* ---------- ボタン ---------- */
 .btn {
   display: inline-flex;

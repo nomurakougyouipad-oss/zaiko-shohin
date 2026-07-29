@@ -59,6 +59,26 @@ let F = null; // { id } id=null なら新規
 
 const mode = () => local.get('mode', 'office'); // 'office' | 'field'
 
+// ---------- 起動画面（スプラッシュ） ----------
+// 初回データ到着でフェードアウト。一瞬で消えてチラつかないよう最低0.8秒は表示する。
+// 読み込みに失敗した場合もエラー表示が見えるよう、必ず消す（保険の8秒タイムアウト付き）。
+
+const SPLASH_MIN_MS = 800;
+const splashShownAt = Date.now();
+
+function hideSplash() {
+  const el = document.getElementById('splash');
+  if (!el || el.dataset.hiding) return;
+  el.dataset.hiding = '1';
+  const rest = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+  setTimeout(() => {
+    el.classList.add('splash-hide');
+    setTimeout(() => el.remove(), 500); // フェード(0.4s)後にDOMから除去
+  }, rest);
+}
+
+setTimeout(hideSplash, 8000); // 保険: 何かに失敗しても起動画面で固まらない
+
 // ---------- 起動 ----------
 // ※ 購読は必ず匿名サインイン完了後に開始する（未認証だと permission-denied で
 //    リスナーが終了し、その後サインインしても復活しないため）
@@ -71,7 +91,8 @@ ready.then(() => {
     S.items = items;
     S.syncedAt = new Date();
     render();
-  }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); });
+    hideSplash(); // 初回読み込み完了 → 起動画面をフェードアウト
+  }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); hideSplash(); });
 
   store.watchRecentLogs((logs) => { S.recentLogs = logs; render(); },
     (e) => console.error('logs購読エラー:', e));
@@ -81,7 +102,7 @@ ready.then(() => {
     (e) => console.error('persons購読エラー:', e));
 
   onRoute(); // 品目詳細を直接開いた場合の履歴購読を認証後にやり直す
-}).catch(() => { S.authError = true; render(); });
+}).catch(() => { S.authError = true; render(); hideSplash(); });
 
 window.addEventListener('hashchange', onRoute);
 // ※ 初回の onRoute() はファイル末尾で呼ぶ（後方の const 宣言より先に実行させないため）
