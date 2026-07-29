@@ -8,14 +8,16 @@
 //   モーダル: 入出庫記録・品目の新規登録/編集
 // ============================================================
 
-import { ready } from './firebase.js';
-import * as store from './store.js';
+// ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
+//   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
+import { ready } from './firebase.js?v=8';
+import * as store from './store.js?v=8';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js';
+} from './util.js?v=8';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -27,6 +29,9 @@ const S = {
   recentLogs: [],
   sites: [],
   persons: [],
+  categories: [],       // 区分マスタ [{id, name, order}]
+  locsMaster: [],       // 保管場所マスタ [{id, name, order}]
+  masterEdit: null,     // 名前変更中 { kind:'cat'|'loc', id, name }
   syncedAt: null,
   authError: false,
 
@@ -84,12 +89,15 @@ setTimeout(hideSplash, 8000); // 保険: 何かに失敗しても起動画面で
 //    リスナーが終了し、その後サインインしても復活しないため）
 
 let authOk = false;
+let mastersSeeded = false;
 
 ready.then(() => {
   authOk = true;
   store.watchItems((items) => {
     S.items = items;
     S.syncedAt = new Date();
+    // 区分・保管場所マスタが未作成なら、現在の選択肢＋使用中の値で自動作成
+    if (!mastersSeeded && items.length) { mastersSeeded = true; store.ensureMasters(items); }
     render();
     hideSplash(); // 初回読み込み完了 → 起動画面をフェードアウト
   }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); hideSplash(); });
@@ -100,6 +108,10 @@ ready.then(() => {
     (e) => console.error('sites購読エラー:', e));
   store.watchPersons((persons) => { S.persons = persons; render(); },
     (e) => console.error('persons購読エラー:', e));
+  store.watchCategories((rows) => { S.categories = rows; render(); },
+    (e) => console.error('categories購読エラー:', e));
+  store.watchLocations((rows) => { S.locsMaster = rows; render(); },
+    (e) => console.error('locations購読エラー:', e));
 
   onRoute(); // 品目詳細を直接開いた場合の履歴購読を認証後にやり直す
 }).catch(() => { S.authError = true; render(); hideSplash(); });
@@ -238,9 +250,19 @@ function spSortedItems() {
   return list;
 }
 
-function locations() {
-  const set = new Set((S.items || []).map((i) => i.location).filter(Boolean));
-  return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+// 区分の選択肢 = マスタ（未作成の間は従来の固定リスト）＋ 品目で使用中の値
+function categoryNames() {
+  const names = S.categories.length ? S.categories.map((c) => c.name) : [...CATEGORIES];
+  for (const it of (S.items || [])) if (it.category && !names.includes(it.category)) names.push(it.category);
+  return names;
+}
+
+// 保管場所の選択肢 = マスタ ＋ 品目で使用中の値
+function locationNames() {
+  const names = S.locsMaster.map((l) => l.name);
+  for (const it of (S.items || [])) if (it.location && !names.includes(it.location)) names.push(it.location);
+  if (!S.locsMaster.length) names.sort((a, b) => a.localeCompare(b, 'ja'));
+  return names;
 }
 
 // ---------- 画面1/1a/4: 在庫一覧 ----------
@@ -319,9 +341,13 @@ function viewList() {
     </tr>`;
   }).join('');
 
-  const catSeg = ['すべて', ...CATEGORIES].map((c) =>
+  const cats = categoryNames();
+  const locs = locationNames();
+  if (S.cat !== 'すべて' && !cats.includes(S.cat)) S.cat = 'すべて'; // 名前変更・削除後の保険
+  if (S.loc !== 'すべて' && !locs.includes(S.loc)) S.loc = 'すべて';
+  const catSeg = ['すべて', ...cats].map((c) =>
     `<span class="seg-opt ${S.cat === c ? 'on' : ''}" data-act="set-cat" data-cat="${esc(c)}">${esc(c)}</span>`).join('');
-  const locOpts = ['すべて', ...locations()].map((l) =>
+  const locOpts = ['すべて', ...locs].map((l) =>
     `<option value="${esc(l)}" ${S.loc === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
 
   // ---- スマホ用カードリスト ----
@@ -738,6 +764,41 @@ function viewOrders() {
 
 function viewSettings() {
   const isOffice = mode() === 'office';
+
+  // 区分・保管場所マスタの行（名前変更中の行は入力欄に切り替え）
+  const useCount = (field, name) => (S.items || []).filter((i) => (i[field] || '') === name).length;
+  const masterRows = (kind, field, list) => list.map((m) => {
+    const editing = S.masterEdit && S.masterEdit.kind === kind && S.masterEdit.id === m.id;
+    if (editing) {
+      return `
+      <div class="master-row">
+        <input class="input" id="me-input" value="${esc(S.masterEdit.name)}" data-input="master-edit-name" style="flex:1">
+        <button class="btn btn-sm btn-primary" data-act="master-save" data-kind="${kind}" data-id="${esc(m.id)}">保存</button>
+        <button class="btn btn-sm" data-act="master-cancel">取消</button>
+      </div>`;
+    }
+    const n = useCount(field, m.name);
+    return `
+      <div class="master-row">
+        <span class="nm">${esc(m.name)}<span style="font-size:11px;opacity:.55">　使用 ${n} 件</span></span>
+        <button class="btn btn-sm" data-act="master-edit" data-kind="${kind}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">名前を変更</button>
+        <button class="btn btn-sm btn-danger" data-act="master-del" data-kind="${kind}" data-id="${esc(m.id)}" data-name="${esc(m.name)}">削除</button>
+      </div>`;
+  }).join('');
+  const masterEmptyNote = `<div style="font-size:13px;opacity:.6;padding:4px 0">
+    マスタがまだ作成されていません。Firestoreルールを最新にした後、アプリを開き直すと現在の選択肢が自動で登録されます。</div>`;
+
+  const masterCard = (kind, field, list, title, sub, addPlaceholder, formName) => `
+    <div class="settings-card office-only">
+      <h3>${title}</h3>
+      ${masterRows(kind, field, list) || masterEmptyNote}
+      <form data-form="${formName}" style="display:flex;gap:8px;margin-top:12px">
+        <input class="input" name="name" type="text" placeholder="${addPlaceholder}" style="flex:1">
+        <button class="btn btn-primary" type="submit">追加</button>
+      </form>
+      <div style="font-size:12px;opacity:.7;margin-top:8px">${sub}</div>
+    </div>`;
+
   const sitesRows = S.sites.map((s) => `
     <div class="master-row">
       <span class="nm">${esc(s.name)}</span>
@@ -788,6 +849,16 @@ function viewSettings() {
       </form>
       <div style="font-size:12px;opacity:.7;margin-top:8px">前回選んだ担当者は端末ごとに記憶され、次回は最初から選択済みになります。</div>
     </div>
+
+    ${masterCard('cat', 'category', S.categories,
+      '区分マスタ（品目の区分の選択肢）',
+      '名前を変更すると、その区分を使っている品目もまとめて新しい名前に更新されます。使用中の区分は削除できません。',
+      '区分名（例：塗料）', 'add-cat')}
+
+    ${masterCard('loc', 'location', S.locsMaster,
+      '保管場所マスタ（品目の保管場所の選択肢）',
+      '名前を変更すると、その保管場所を使っている品目もまとめて新しい名前に更新されます。使用中の保管場所は削除できません。',
+      '保管場所名（例：松前工場）', 'add-loc')}
 
     <div class="settings-card office-only">
       <h3>データ</h3>
@@ -931,6 +1002,8 @@ function renderItemForm() {
   const it = F.id ? (S.items || []).find((i) => i.id === F.id) || {} : {};
   const isNew = !F.id;
   const v = (x) => esc(x == null ? '' : x);
+  const cats = categoryNames();   // マスタ＋使用中の値（編集中の品目の現在値も含まれる）
+  const locs = locationNames();
   modalEl.innerHTML = `
   <div class="modal-back" data-act="if-back">
     <div class="modal modal-wide" data-stop>
@@ -945,7 +1018,7 @@ function renderItemForm() {
             <input class="input" name="model" value="${v(it.model)}" placeholder="例：KT-300"></div>
           <div class="field"><label>区分 <span style="color:var(--red)">*</span></label>
             <select class="input" name="category" required>
-              ${CATEGORIES.map((c) => `<option ${it.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+              ${cats.map((c) => `<option ${it.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
             </select></div>
           ${isNew ? `
           <div class="field"><label>初期在庫数 <span style="color:var(--red)">*</span></label>
@@ -961,8 +1034,10 @@ function renderItemForm() {
           <div class="field"><label>単価（税抜・円） <span style="color:var(--red)">*</span></label>
             <input class="input num" name="price" type="number" min="0" required value="${v(it.price ?? 0)}"></div>
           <div class="field"><label>保管場所</label>
-            <input class="input" name="location" value="${v(it.location)}" placeholder="例：資材倉庫A" list="loc-list">
-            <datalist id="loc-list">${locations().map((l) => `<option value="${esc(l)}">`).join('')}</datalist></div>
+            <select class="input" name="location">
+              <option value="">（未設定）</option>
+              ${locs.map((l) => `<option ${it.location === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+            </select></div>
           <div class="field"><label>棚番</label>
             <input class="input" name="shelf" value="${v(it.shelf)}" placeholder="例：A-12"></div>
           <div class="field"><label>仕入先</label>
@@ -1081,6 +1156,55 @@ function stocktakeCommitConfirm() {
 }
 
 // ---------- 写真ビューア（ピンチで拡大縮小・ダブルタップで拡大/戻る・ドラッグで移動） ----------
+
+// ---------- 区分・保管場所マスタ（設定画面） ----------
+
+const MASTER_LABEL = { cat: '区分', loc: '保管場所' };
+
+function addMasterEntry(kind, name) {
+  const list = kind === 'cat' ? S.categories : S.locsMaster;
+  if (!name) return;
+  if (name.length > 100) { toast('名前は100文字以内で入力してください'); return; }
+  if (list.some((m) => m.name === name)) { toast(`「${name}」は既に登録されています`); return; }
+  store.addMaster(kind, name);
+  toast(`${MASTER_LABEL[kind]}「${name}」を追加しました`);
+}
+
+async function saveMasterEdit(kind, id) {
+  const me = S.masterEdit;
+  if (!me || me.kind !== kind || me.id !== id) return;
+  const list = kind === 'cat' ? S.categories : S.locsMaster;
+  const cur = list.find((m) => m.id === id);
+  const newName = (me.name || '').trim();
+  if (!cur) { S.masterEdit = null; render(); return; }
+  if (!newName) { toast('名前を入力してください'); return; }
+  if (newName.length > 100) { toast('名前は100文字以内で入力してください'); return; }
+  if (newName === cur.name) { S.masterEdit = null; render(); return; }
+  if (list.some((m) => m.id !== id && m.name === newName)) { toast(`「${newName}」は既に登録されています`); return; }
+
+  const field = kind === 'cat' ? 'category' : 'location';
+  const n = (S.items || []).filter((i) => (i[field] || '') === cur.name).length;
+  if (n && !confirm(`${MASTER_LABEL[kind]}「${cur.name}」を「${newName}」に変更しますか？\n使用中の品目 ${n} 件もまとめて新しい名前に更新されます。`)) return;
+
+  S.masterEdit = null;
+  render();
+  try {
+    const updated = await store.renameMaster(kind, id, cur.name, newName);
+    toast(`「${cur.name}」を「${newName}」に変更しました${updated ? `（品目 ${updated} 件を更新）` : ''}`);
+  } catch (e) {
+    console.error('マスタ名の変更に失敗:', e);
+    toast('名前を変更できませんでした。電波状況をご確認のうえ、もう一度お試しください。', 5000);
+  }
+}
+
+function deleteMasterEntry(kind, id, name) {
+  const field = kind === 'cat' ? 'category' : 'location';
+  const n = (S.items || []).filter((i) => (i[field] || '') === name).length;
+  if (n) { toast(`「${name}」は使用中のため削除できません（${n} 件）`, 4000); return; }
+  if (!confirm(`${MASTER_LABEL[kind]}「${name}」を削除しますか？`)) return;
+  store.removeMaster(kind, id);
+  toast(`「${name}」を削除しました`);
+}
 
 function openPhotoViewer(item) {
   if (!item || !item.photo) return;
@@ -1348,6 +1472,10 @@ document.addEventListener('click', (e) => {
     case 'del-site':
       if (confirm('この現場を削除しますか？（過去の記録はそのまま残ります）')) store.removeSite(id);
       break;
+    case 'master-edit': S.masterEdit = { kind: el.dataset.kind, id, name: el.dataset.name }; render(); break;
+    case 'master-cancel': S.masterEdit = null; render(); break;
+    case 'master-save': saveMasterEdit(el.dataset.kind, id); break;
+    case 'master-del': deleteMasterEntry(el.dataset.kind, id, el.dataset.name); break;
     case 'del-person':
       if (confirm('この担当者を削除しますか？（過去の記録はそのまま残ります）')) store.removePerson(id);
       break;
@@ -1387,6 +1515,7 @@ document.addEventListener('input', (e) => {
     }
     case 'mv-person': if (M) M.person = el.value; break;
     case 'mv-memo': if (M) { M.memo = el.value; M.memoTouched = true; } break;
+    case 'master-edit-name': if (S.masterEdit) S.masterEdit.name = el.value; break;
   }
 });
 
@@ -1427,6 +1556,11 @@ document.addEventListener('submit', (e) => {
     case 'add-person': {
       const name = String(new FormData(form).get('name') || '').trim();
       if (name) { store.addPerson(name); form.reset(); }
+      break;
+    }
+    case 'add-cat': case 'add-loc': {
+      const name = String(new FormData(form).get('name') || '').trim();
+      if (name) { addMasterEntry(form.dataset.form === 'add-cat' ? 'cat' : 'loc', name); form.reset(); }
       break;
     }
   }

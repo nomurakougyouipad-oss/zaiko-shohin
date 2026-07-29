@@ -4,22 +4,23 @@
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
-// ※ app.css / js/app.js は index.html の ?v= 付きURLと一致させること
+// ※ ?v= は index.html と 各jsファイルの import の ?v= に一致させること
+//   （バージョンを上げるときは VERSION・index.html・js内import・この一覧を全て更新）
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=7',
+  './app.css?v=8',
   './manifest.webmanifest',
-  './firebase-config.js',
-  './js/app.js?v=7',
-  './js/util.js',
-  './js/firebase.js',
-  './js/store.js',
-  './js/image.js',
+  './firebase-config.js?v=8',
+  './js/app.js?v=8',
+  './js/util.js?v=8',
+  './js/firebase.js?v=8',
+  './js/store.js?v=8',
+  './js/image.js?v=8',
   './icons/icon-9a-48.png',
   './icons/icon-9a-120.png',
   './icons/icon-9a-180.png',

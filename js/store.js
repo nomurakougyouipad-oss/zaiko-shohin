@@ -15,14 +15,16 @@ import {
   getDocs, onSnapshot, query, where, orderBy,
   serverTimestamp, writeBatch, increment, Timestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
-} from './firebase.js';
-import { resizeImage } from './image.js';
-import { monthStart, num } from './util.js';
+} from './firebase.js?v=8';
+import { resizeImage } from './image.js?v=8';
+import { monthStart, num, CATEGORIES } from './util.js?v=8';
 
 const itemsCol = collection(db, 'items');
 const logsCol = collection(db, 'logs');
 const sitesCol = collection(db, 'sites');
 const personsCol = collection(db, 'persons');
+const categoriesCol = collection(db, 'categories');
+const locationsCol = collection(db, 'locations');
 
 // ---------- 監視（リアルタイム購読） ----------
 
@@ -63,6 +65,77 @@ export function watchPersons(cb, onError) {
 }
 
 function tsMillis(v) { return v && v.toMillis ? v.toMillis() : 0; }
+
+// ---------- 区分・保管場所マスタ ----------
+// kind: 'cat'（区分）| 'loc'（保管場所）。並びは order（登録順）→ 名前。
+
+const masterCol = (kind) => (kind === 'cat' ? categoriesCol : locationsCol);
+const masterField = (kind) => (kind === 'cat' ? 'category' : 'location');
+
+function watchMaster(col, cb, onError) {
+  return onSnapshot(col, (snap) => {
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) =>
+      (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+      String(a.name).localeCompare(String(b.name), 'ja'));
+    cb(rows);
+  }, onError);
+}
+
+export function watchCategories(cb, onError) { return watchMaster(categoriesCol, cb, onError); }
+export function watchLocations(cb, onError) { return watchMaster(locationsCol, cb, onError); }
+
+export function addMaster(kind, name) {
+  setDoc(doc(masterCol(kind)), { name, order: Date.now(), createdAt: serverTimestamp() })
+    .catch((e) => console.error('マスタの追加に失敗:', e));
+}
+
+export function removeMaster(kind, id) {
+  deleteDoc(doc(masterCol(kind), id)).catch((e) => console.error('マスタの削除に失敗:', e));
+}
+
+// 名前変更。使用中の品目（category / location が旧名のもの）もまとめて新名に更新する
+export async function renameMaster(kind, id, oldName, newName) {
+  await updateDoc(doc(masterCol(kind), id), { name: newName });
+  const field = masterField(kind);
+  const snap = await getDocs(query(itemsCol, where(field, '==', oldName)));
+  const refs = snap.docs.map((d) => d.ref);
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 400).forEach((r) => batch.update(r, { [field]: newName, updatedAt: serverTimestamp() }));
+    await batch.commit();
+  }
+  return refs.length;
+}
+
+// 初期投入（マスタが空のときだけ）: 現在の固定選択肢＋既存品目で使用中の値を登録する。
+// ドキュメントIDに名前を使い、複数端末が同時に実行しても重複しないようにする。
+export async function ensureMasters(items) {
+  const docId = (name) => name.replaceAll('/', '／');
+  try {
+    const [catSnap, locSnap] = await Promise.all([getDocs(categoriesCol), getDocs(locationsCol)]);
+    if (catSnap.empty) {
+      const names = [...CATEGORIES];
+      for (const it of items) if (it.category && !names.includes(it.category)) names.push(it.category);
+      const batch = writeBatch(db);
+      names.forEach((name, i) =>
+        batch.set(doc(categoriesCol, docId(name)), { name, order: i, createdAt: serverTimestamp() }, { merge: true }));
+      await batch.commit();
+    }
+    if (locSnap.empty) {
+      const names = Array.from(new Set(items.map((i) => i.location).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, 'ja'));
+      for (const extra of ['松前工場', '伊予工場']) if (!names.includes(extra)) names.push(extra);
+      const batch = writeBatch(db);
+      names.forEach((name, i) =>
+        batch.set(doc(locationsCol, docId(name)), { name, order: i, createdAt: serverTimestamp() }, { merge: true }));
+      await batch.commit();
+    }
+  } catch (e) {
+    // ルール未適用・オフライン等では投入できないが、アプリ自体は動かす
+    console.warn('区分・保管場所マスタの初期投入をスキップ:', e);
+  }
+}
 
 // ---------- 入出庫記録 ----------
 

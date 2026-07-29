@@ -21,7 +21,7 @@ service cloud.firestore {
     function validItem(d) {
       return d.name is string && d.name.size() > 0 && d.name.size() <= 200
         && strMax(d.get('model', ''), 100)
-        && d.category in ['保護具', '溶接材料', '刃物・砥石', '資材', '清掃用品']
+        && d.category is string && d.category.size() > 0 && d.category.size() <= 100
         && d.stock is number && d.stock >= 0
         && d.min is number && d.min >= 0
         && strMax(d.unit, 20)
@@ -76,6 +76,20 @@ service cloud.firestore {
 
     // 担当者マスタ（入出庫記録の担当者プルダウン）
     match /persons/{personId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validNamed(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 区分マスタ（品目の区分の選択肢）
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validNamed(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 保管場所マスタ（品目の保管場所の選択肢）
+    match /locations/{locationId} {
       allow read: if signedIn();
       allow create, update: if signedIn() && validNamed(request.resource.data);
       allow delete: if signedIn();
