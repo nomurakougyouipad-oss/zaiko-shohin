@@ -282,7 +282,7 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
 .sp-card .sub { font-size: 11px; opacity: .7; padding-bottom: 2px; }
 
 .fab {
-  position: fixed; right: 16px; bottom: 84px; z-index: 50;
+  position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 50;
   width: 56px; height: 56px; justify-content: center; font-size: 26px;
   box-shadow: 0 6px 18px rgba(0,0,0,.35);
 }
@@ -291,12 +291,14 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
   display: grid; grid-template-columns: repeat(4, 1fr);
   background: var(--grad-header); color: #f1f3f1;
   border-top: 2px solid var(--text);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* iPhoneのホームバー（セーフエリア）ぶんだけ下に余白を足す */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .tabbar a {
   padding: 12px 4px; text-align: center; font-size: 11px; color: #f1f3f1;
-  opacity: .75; cursor: pointer; min-height: 44px;
+  opacity: .75; cursor: pointer; min-height: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
 }
 .tabbar a:hover { text-decoration: none; }
 .tabbar a.on { opacity: 1; font-weight: 700; color: #fff; border-top: 3px solid #fff; padding-top: 9px; }
@@ -331,6 +333,8 @@ span.pc-only, a.pc-only { display: inline; }
 @media (max-width: 900px) {
   .pc-only { display: none !important; }
   .sp-only { display: block; }
+  /* .sp-only の display:block に上書きされないよう、タブバーは必ず横一列グリッドに戻す */
+  .tabbar.sp-only { display: grid; }
   .page { padding: 16px 16px 96px; }
   .page-head h2 { font-size: 22px; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -340,7 +344,7 @@ span.pc-only, a.pc-only { display: inline; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .modal { width: 100%; }
   .alert-band .total { margin-left: 0; width: 100%; }
-  body.has-tabbar { padding-bottom: 64px; }
+  body.has-tabbar { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (min-width: 901px) {

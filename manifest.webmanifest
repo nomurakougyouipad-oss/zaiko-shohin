@@ -1,6 +1,6 @@
 {
-  "name": "消耗品在庫管理｜よつば建設工業",
-  "short_name": "在庫管理",
+  "name": "消耗品在庫",
+  "short_name": "消耗品在庫",
   "description": "よつば建設工業 社内向け 消耗品在庫管理アプリ",
   "lang": "ja",
   "start_url": "./",
