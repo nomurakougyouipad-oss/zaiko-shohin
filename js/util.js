@@ -75,6 +75,9 @@ export function esc(s) {
 }
 
 // CSV出力（UTF-8 BOM付き → Excelでそのまま開ける）
+// iPhone/iPad は共有シート（ファイルに保存・メール等）で渡す。
+// ホーム画面起動（PWA）では <a download> の Blob 保存が正常に動かず、
+// 実行後に画面のタップが効かなくなる不具合があるため。
 export function downloadCsv(filename, rows) {
   const cell = (v) => {
     const s = String(v == null ? '' : v);
@@ -82,12 +85,24 @@ export function downloadCsv(filename, rows) {
   };
   const csv = '﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOSはMac名義
+  if (isIOS && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'text/csv' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file] }).catch(() => { /* キャンセルは無視 */ });
+      return;
+    }
+  }
+
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  // 即時に revoke するとダウンロード開始前にURLが無効になる端末があるため遅らせる
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 
 // 端末側の記憶（担当者・モード・並び順）

@@ -4,7 +4,7 @@
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
@@ -12,10 +12,10 @@ const CACHE = 'zaiko-shohin-' + VERSION;
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=6',
+  './app.css?v=7',
   './manifest.webmanifest',
   './firebase-config.js',
-  './js/app.js?v=6',
+  './js/app.js?v=7',
   './js/util.js',
   './js/firebase.js',
   './js/store.js',

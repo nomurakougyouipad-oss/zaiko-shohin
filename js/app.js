@@ -368,7 +368,7 @@ function viewList() {
       ${spCards || `<div style="padding:24px 8px;font-size:13px;opacity:.7">該当する品目はありません。</div>`}
       ${spRemain > 0 ? `<button class="btn" style="justify-content:center;min-height:48px" data-act="sp-more">さらに読み込む（残り ${spRemain} 件）</button>` : ''}
     </div>
-    <button class="btn btn-primary fab" data-act="open-move">＋</button>
+    <button class="btn btn-primary fab office-only" data-act="new-item" aria-label="品目を新規登録" title="品目を新規登録">＋</button>
   </div>
 
   <div class="page pc-only">
@@ -936,7 +936,7 @@ function renderItemForm() {
     <div class="modal modal-wide" data-stop>
       <div class="modal-head">${isNew ? '品目の新規登録' : '品目の編集'}<span class="x" data-act="if-cancel">✕</span></div>
       <form class="modal-body" data-form="item-form">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">
+        <div class="form-grid">
           <div class="field"><label>品目コード${isNew ? '（空欄で自動採番）' : ''}</label>
             <input class="input" name="code" value="${v(F.id)}" ${isNew ? 'placeholder="例：A1"' : 'readonly'}></div>
           <div class="field"><label>品名 <span style="color:var(--red)">*</span></label>
