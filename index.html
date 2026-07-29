@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>消耗品在庫</title>
 <meta name="description" content="よつば建設工業 社内向け 消耗品在庫管理アプリ">
 <meta name="theme-color" content="#177a49">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
-<link rel="stylesheet" href="./app.css?v=5">
+<link rel="stylesheet" href="./app.css?v=6">
 </head>
 <body>
 <!-- 起動画面（スプラッシュ）: データ初回読み込みが終わるとフェードアウト -->
@@ -31,13 +31,18 @@
     var s = document.getElementById('splash');
     if (s) { s.classList.add('splash-hide'); setTimeout(function () { s.remove(); }, 500); }
   }, 10000);
+  // iOS Safari はビューポート設定(user-scalable=no)を無視することがあるため、
+  // ジェスチャーイベントを止めてページ全体のピンチズームを抑止する。
+  // （写真ビューアの拡大は独自実装のため影響なし）
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
 </script>
 <div id="app">
   <div style="padding:48px 24px;text-align:center;font-size:14px;opacity:.7">読み込み中…</div>
 </div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<script type="module" src="./js/app.js?v=5"></script>
+<script type="module" src="./js/app.js?v=6"></script>
 <script>
   // PWA: Service Worker 登録（ローカルファイル直開きでは無効）
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

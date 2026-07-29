@@ -516,7 +516,7 @@ function viewItem() {
     </div>
     <div>
       ${item.photo
-        ? `<img class="sp-photo" src="${esc(item.photo)}" alt="現物写真">`
+        ? `<img class="sp-photo" src="${esc(item.photo)}" alt="現物写真（タップで拡大）" data-act="photo-view" data-id="${esc(item.id)}" style="cursor:zoom-in">`
         : `<div class="sp-photo-empty">写真を撮る／選ぶ で現物写真を登録</div>`}
       <div class="sp-photo-btns">
         <label class="btn btn-primary" for="photo-cam">写真を撮る</label>
@@ -560,7 +560,7 @@ function viewItem() {
       <div>
         <div class="photo-box">
           ${item.photo
-            ? `<img class="ph" src="${esc(item.photo)}" alt="現物写真">`
+            ? `<img class="ph" src="${esc(item.photo)}" alt="現物写真（クリックで拡大）" data-act="photo-view" data-id="${esc(item.id)}" style="cursor:zoom-in" title="クリックで拡大">`
             : `<div class="ph-empty">現物写真は未登録です</div>`}
         </div>
         <div style="font-size:12px;opacity:.65;margin-top:6px">${photoInfo}</div>
@@ -670,7 +670,7 @@ function viewOrders() {
       <td style="font-size:13px">${esc(a.supplier || '')}</td>
       <td style="font-size:13px">${esc(a.lead || '')}</td>
       <td>
-        <select class="input office-only" style="min-height:32px;padding:4px 6px;font-size:12px;width:auto" data-change="order-status" data-id="${esc(a.id)}">
+        <select class="input office-only" style="min-height:32px;padding:4px 6px;width:auto" data-change="order-status" data-id="${esc(a.id)}">
           ${ORDER_STATES.map((s) => `<option ${(a.orderStatus || '未発注') === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select>
         <span class="tag tag-outline field-only">${esc(a.orderStatus || '未発注')}</span>
@@ -1080,6 +1080,140 @@ function stocktakeCommitConfirm() {
   toast(`棚卸を確定しました（差異 ${diffs.length} 件を調整）`);
 }
 
+// ---------- 写真ビューア（ピンチで拡大縮小・ダブルタップで拡大/戻る・ドラッグで移動） ----------
+
+function openPhotoViewer(item) {
+  if (!item || !item.photo) return;
+  const pv = document.createElement('div');
+  pv.className = 'photoviewer';
+  pv.innerHTML = `
+    <div class="pv-top">
+      <span class="pv-title">${esc(item.name)}　現物写真</span>
+      <button class="pv-x" type="button" aria-label="閉じる">✕</button>
+    </div>
+    <div class="pv-stage"><img src="${esc(item.photo)}" alt="現物写真" draggable="false"></div>
+    <div class="pv-hint">ピンチで拡大縮小／ダブルタップで拡大・戻る／ドラッグで移動／背景タップで閉じる</div>`;
+  document.body.appendChild(pv);
+
+  const stage = pv.querySelector('.pv-stage');
+  const img = pv.querySelector('img');
+  const MIN = 1, MAX = 5;
+  let scale = 1, tx = 0, ty = 0;
+
+  const apply = () => {
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    stage.style.cursor = scale > 1 ? 'grab' : 'zoom-in';
+  };
+
+  // 画面上の点 p を固定したまま倍率を s2 へ（transform-origin は中央）
+  const zoomAt = (p, s2) => {
+    const s = Math.min(MAX, Math.max(MIN, s2));
+    const r = stage.getBoundingClientRect();
+    const px = p.x - r.left - r.width / 2;
+    const py = p.y - r.top - r.height / 2;
+    tx = px - (px - tx) * (s / scale);
+    ty = py - (py - ty) * (s / scale);
+    scale = s;
+    if (scale === 1) { tx = 0; ty = 0; }
+    apply();
+  };
+
+  const close = () => { document.removeEventListener('keydown', onKey); pv.remove(); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  pv.querySelector('.pv-x').addEventListener('click', close);
+
+  // ポインタ（タッチ・マウス共通）でピンチ／パン／タップを処理
+  const pointers = new Map();
+  let start = null;   // 現在のジェスチャーの開始状態
+  let lastTap = null; // ダブルタップ判定用
+
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { stage.setPointerCapture(e.pointerId); } catch (_) { /* 非アクティブなポインタは無視 */ }
+    const pts = Array.from(pointers.values());
+    if (pts.length === 1) {
+      start = { mode: 'pan', x: e.clientX, y: e.clientY, tx, ty, moved: false, t: Date.now(), onImg: e.target === img };
+    } else if (pts.length === 2) {
+      const [a, b] = pts;
+      start = {
+        mode: 'pinch',
+        dist: Math.hypot(a.x - b.x, a.y - b.y),
+        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        scale, tx, ty,
+      };
+    }
+  });
+
+  stage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = Array.from(pointers.values());
+    if (start && start.mode === 'pinch' && pts.length >= 2) {
+      const [a, b] = pts;
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const s2 = Math.min(MAX, Math.max(MIN, start.scale * (dist / Math.max(1, start.dist))));
+      const r = stage.getBoundingClientRect();
+      const px = start.mid.x - r.left - r.width / 2;
+      const py = start.mid.y - r.top - r.height / 2;
+      // 開始時の中点を基準に拡大し、中点の移動ぶんだけパンする
+      tx = px - (px - start.tx) * (s2 / start.scale) + (mid.x - start.mid.x);
+      ty = py - (py - start.ty) * (s2 / start.scale) + (mid.y - start.mid.y);
+      scale = s2;
+      apply();
+    } else if (start && start.mode === 'pan' && pts.length === 1) {
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      if (Math.hypot(dx, dy) > 8) start.moved = true;
+      if (scale > 1) { tx = start.tx + dx; ty = start.ty + dy; apply(); }
+    }
+  });
+
+  const endPointer = (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+
+    if (start && start.mode === 'pan' && pointers.size === 0) {
+      const isTap = !start.moved && Date.now() - start.t < 300;
+      if (isTap) {
+        const p = { x: e.clientX, y: e.clientY };
+        const now = Date.now();
+        if (lastTap && now - lastTap.t < 320 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 40) {
+          zoomAt(p, scale > 1 ? 1 : 2.5); // ダブルタップ: 拡大 ⇔ 等倍
+          lastTap = null;
+        } else {
+          lastTap = { x: p.x, y: p.y, t: now };
+          if (!start.onImg && scale === 1) {
+            // 背景のシングルタップで閉じる（ダブルタップと区別するため少し待つ）
+            setTimeout(() => { if (lastTap && lastTap.t === now) close(); }, 330);
+          }
+        }
+      }
+      start = null;
+    } else if (start && start.mode === 'pinch' && pointers.size < 2) {
+      // ピンチ終了 → 残った指はそのままパンに移行
+      const pts = Array.from(pointers.values());
+      start = pts.length === 1
+        ? { mode: 'pan', x: pts[0].x, y: pts[0].y, tx, ty, moved: true, t: Date.now(), onImg: true }
+        : null;
+      if (scale <= 1.02) { scale = 1; tx = 0; ty = 0; apply(); }
+    } else if (pointers.size === 0) {
+      start = null;
+    }
+  };
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  // PC: マウスホイールでも拡大縮小できる
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoomAt({ x: e.clientX, y: e.clientY }, scale * (e.deltaY < 0 ? 1.2 : 1 / 1.2));
+  }, { passive: false });
+
+  apply();
+}
+
 // ---------- 写真アップロード ----------
 
 async function handlePhoto(input) {
@@ -1144,6 +1278,7 @@ document.addEventListener('click', (e) => {
   switch (el.dataset.act) {
     // 一覧
     case 'goto-item': location.hash = '#/item/' + encodeURIComponent(id); break;
+    case 'photo-view': openPhotoViewer((S.items || []).find((i) => i.id === id)); break;
     case 'set-cat': S.cat = el.dataset.cat; S.page = 1; S.spCount = 12; render(); break;
     case 'page-prev': S.page = Math.max(1, S.page - 1); render(); window.scrollTo(0, 0); break;
     case 'page-next': S.page = S.page + 1; render(); window.scrollTo(0, 0); break;

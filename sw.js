@@ -1,10 +1,10 @@
-// ============================================================
+﻿// ============================================================
 // Service Worker — アプリシェルのオフラインキャッシュ（PWA）
 // ・自サイトの静的ファイルのみキャッシュ
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
@@ -12,10 +12,10 @@ const CACHE = 'zaiko-shohin-' + VERSION;
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=5',
+  './app.css?v=6',
   './manifest.webmanifest',
   './firebase-config.js',
-  './js/app.js?v=5',
+  './js/app.js?v=6',
   './js/util.js',
   './js/firebase.js',
   './js/store.js',

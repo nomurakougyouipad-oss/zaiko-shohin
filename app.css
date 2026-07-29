@@ -24,6 +24,10 @@
 
 * { box-sizing: border-box; border-radius: 0 !important; }
 
+/* ダブルタップズームを無効化（スクロール・ボタン操作はそのまま）。
+   touch-action は継承されないため全要素に指定する */
+* { touch-action: manipulation; }
+
 html, body {
   margin: 0;
   background: var(--bg);
@@ -267,6 +271,38 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
 .qty-row .input { flex: 1; font-size: 18px; font-weight: 700; text-align: right; min-height: 48px; }
 .qty-btn { min-width: 64px; min-height: 48px; justify-content: center; font-size: 16px; }
 
+/* ---------- 写真ビューア（ピンチ拡大・ダブルタップ・ドラッグ移動） ---------- */
+.photoviewer {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(8, 10, 8, .96);
+  display: flex; flex-direction: column;
+  overscroll-behavior: contain;
+}
+/* ビューア内はブラウザのジェスチャーを完全に止め、独自のピンチ/ドラッグ処理に任せる */
+.photoviewer, .photoviewer * { touch-action: none; }
+.pv-top {
+  display: flex; align-items: center; gap: 12px;
+  color: #fff; padding: 10px 12px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  flex: none;
+}
+.pv-title { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-x {
+  margin-left: auto; width: 44px; height: 44px; flex: none;
+  background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, .55);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.pv-x:hover { background: rgba(255, 255, 255, .12); }
+.pv-stage { flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center; cursor: grab; }
+.pv-stage img {
+  max-width: 100%; max-height: 100%; display: block;
+  user-select: none; -webkit-user-select: none; will-change: transform;
+}
+.pv-hint {
+  flex: none; color: rgba(255, 255, 255, .6); font-size: 11px; text-align: center;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
 /* ---------- 接続バナー・トースト ---------- */
 .conn-error {
   background: var(--red); color: #fff; font-weight: 700;
@@ -360,6 +396,9 @@ span.pc-only, a.pc-only { display: inline; }
   .sp-only { display: block; }
   /* .sp-only の display:block に上書きされないよう、タブバーは必ず横一列グリッドに戻す */
   .tabbar.sp-only { display: grid; }
+  /* iOSは16px未満の入力欄にフォーカスすると勝手にズームするため、スマホでは16px以上を維持 */
+  .input, select.input, textarea.input { font-size: 16px; }
+  .sp-sortnote select { font-size: 16px; padding: 4px 6px; }
   .page { padding: 16px 16px 96px; }
   .page-head h2 { font-size: 22px; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
