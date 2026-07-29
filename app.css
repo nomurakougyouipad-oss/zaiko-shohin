@@ -44,30 +44,26 @@ a:hover { color: var(--green); text-decoration: underline; }
 .num { font-variant-numeric: tabular-nums; }
 .right { text-align: right; }
 
-/* ---------- 起動画面（スプラッシュ） ---------- */
+/* ---------- 起動画面（スプラッシュ） ----------
+   白背景に深緑のアプリ名のみ。読み込み完了後、Xの起動画面のように
+   文字が手前にズームイン（scale 1→9）しながら全体がフェードアウトする */
 #splash {
   position: fixed; inset: 0; z-index: 999;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 0;
-  background: linear-gradient(150deg, #33c274 0%, #177a49 55%, #0e3b28 100%);
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
   opacity: 1;
-  transition: opacity .4s ease;
+  transition: opacity .45s ease-in;
+}
+#splash .splash-title {
+  color: var(--green); font-weight: 900; font-size: 26px; letter-spacing: .08em;
+  text-align: center;
+  transform: scale(1);
+  transform-origin: center center;
+  will-change: transform, opacity;
+  transition: transform .45s ease-in;
 }
 #splash.splash-hide { opacity: 0; pointer-events: none; }
-.splash-mark {
-  /* icon-9a は白地＋緑マークのPNG。そのまま「白い角板」として使う（角丸なし） */
-  width: 96px; height: 96px; display: block;
-  background: #fff;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
-}
-.splash-title {
-  margin-top: 24px;
-  color: #fff; font-weight: 900; font-size: 22px; letter-spacing: .06em;
-}
-.splash-sub {
-  margin-top: 8px;
-  color: rgba(255, 255, 255, .85); font-weight: 500; font-size: 13px; letter-spacing: .1em;
-}
+#splash.splash-hide .splash-title { transform: scale(9); }
 
 /* ---------- ボタン ---------- */
 .btn {

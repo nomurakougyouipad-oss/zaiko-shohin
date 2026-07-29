@@ -10,14 +10,14 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=8';
-import * as store from './store.js?v=8';
+import { ready } from './firebase.js?v=9';
+import * as store from './store.js?v=9';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=8';
+} from './util.js?v=9';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -77,8 +77,8 @@ function hideSplash() {
   el.dataset.hiding = '1';
   const rest = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
   setTimeout(() => {
-    el.classList.add('splash-hide');
-    setTimeout(() => el.remove(), 500); // フェード(0.4s)後にDOMから除去
+    el.classList.add('splash-hide'); // 文字がズームイン(scale 1→9)しつつフェードアウト
+    setTimeout(() => el.remove(), 500); // アニメーション(0.45s)後にDOMから除去
   }, rest);
 }
 
