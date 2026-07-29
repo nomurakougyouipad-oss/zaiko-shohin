@@ -45,8 +45,9 @@ a:hover { color: var(--green); text-decoration: underline; }
 .right { text-align: right; }
 
 /* ---------- 起動画面（スプラッシュ） ----------
-   白背景に深緑のアプリ名のみ。読み込み完了後、Xの起動画面のように
-   文字が手前にズームイン（scale 1→9）しながら全体がフェードアウトする */
+   白背景にアプリアイコンのマーク（STK＋上下矢印）のみ。読み込み完了後、
+   Xの起動画面のようにマークが手前にズームイン（scale 1→9）しながら
+   全体がフェードアウトする */
 #splash {
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
@@ -54,16 +55,16 @@ a:hover { color: var(--green); text-decoration: underline; }
   opacity: 1;
   transition: opacity .45s ease-in;
 }
-#splash .splash-title {
-  color: var(--green); font-weight: 900; font-size: 26px; letter-spacing: .08em;
-  text-align: center;
+#splash .splash-logo {
+  /* 画面幅の約27%（PCでは大きくなりすぎないよう上限240px） */
+  width: min(27vw, 240px); height: auto; display: block;
   transform: scale(1);
   transform-origin: center center;
   will-change: transform, opacity;
   transition: transform .45s ease-in;
 }
 #splash.splash-hide { opacity: 0; pointer-events: none; }
-#splash.splash-hide .splash-title { transform: scale(9); }
+#splash.splash-hide .splash-logo { transform: scale(9); }
 
 /* ---------- ボタン ---------- */
 .btn {
