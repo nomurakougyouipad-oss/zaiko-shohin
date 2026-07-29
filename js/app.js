@@ -60,21 +60,28 @@ let F = null; // { id } id=null なら新規
 const mode = () => local.get('mode', 'office'); // 'office' | 'field'
 
 // ---------- 起動 ----------
+// ※ 購読は必ず匿名サインイン完了後に開始する（未認証だと permission-denied で
+//    リスナーが終了し、その後サインインしても復活しないため）
 
-ready.catch(() => { S.authError = true; render(); });
+let authOk = false;
 
-store.watchItems((items) => {
-  S.items = items;
-  S.syncedAt = new Date();
-  render();
-}, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); });
+ready.then(() => {
+  authOk = true;
+  store.watchItems((items) => {
+    S.items = items;
+    S.syncedAt = new Date();
+    render();
+  }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); });
 
-store.watchRecentLogs((logs) => { S.recentLogs = logs; render(); },
-  (e) => console.error('logs購読エラー:', e));
-store.watchSites((sites) => { S.sites = sites; render(); },
-  (e) => console.error('sites購読エラー:', e));
-store.watchPersons((persons) => { S.persons = persons; render(); },
-  (e) => console.error('persons購読エラー:', e));
+  store.watchRecentLogs((logs) => { S.recentLogs = logs; render(); },
+    (e) => console.error('logs購読エラー:', e));
+  store.watchSites((sites) => { S.sites = sites; render(); },
+    (e) => console.error('sites購読エラー:', e));
+  store.watchPersons((persons) => { S.persons = persons; render(); },
+    (e) => console.error('persons購読エラー:', e));
+
+  onRoute(); // 品目詳細を直接開いた場合の履歴購読を認証後にやり直す
+}).catch(() => { S.authError = true; render(); });
 
 window.addEventListener('hashchange', onRoute);
 // ※ 初回の onRoute() はファイル末尾で呼ぶ（後方の const 宣言より先に実行させないため）
@@ -96,8 +103,8 @@ function onRoute() {
   else if (h === '#/settings') route = { view: 'settings' };
   S.route = route;
 
-  // 品目詳細の履歴購読を張り替え
-  const wantId = route.view === 'item' ? route.id : null;
+  // 品目詳細の履歴購読を張り替え（認証完了後のみ。完了時に onRoute が再実行される）
+  const wantId = route.view === 'item' && authOk ? route.id : null;
   if (wantId !== S.detailItemId) {
     if (S.detailUnsub) { S.detailUnsub(); S.detailUnsub = null; }
     S.detailItemId = wantId;
