@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
-<link rel="stylesheet" href="./app.css">
+<link rel="stylesheet" href="./app.css?v=5">
 </head>
 <body>
 <!-- 起動画面（スプラッシュ）: データ初回読み込みが終わるとフェードアウト -->
@@ -25,12 +25,19 @@
   <div class="splash-title">消耗品在庫管理</div>
   <div class="splash-sub">よつば建設工業</div>
 </div>
+<script>
+  // 保険: 万一アプリ側の処理が走らなくても、起動画面のまま固まらないようにする
+  setTimeout(function () {
+    var s = document.getElementById('splash');
+    if (s) { s.classList.add('splash-hide'); setTimeout(function () { s.remove(); }, 500); }
+  }, 10000);
+</script>
 <div id="app">
   <div style="padding:48px 24px;text-align:center;font-size:14px;opacity:.7">読み込み中…</div>
 </div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<script type="module" src="./js/app.js"></script>
+<script type="module" src="./js/app.js?v=5"></script>
 <script>
   // PWA: Service Worker 登録（ローカルファイル直開きでは無効）
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
