@@ -1,0 +1,16 @@
+{
+  "name": "消耗品在庫管理｜よつば建設工業",
+  "short_name": "在庫管理",
+  "description": "よつば建設工業 社内向け 消耗品在庫管理アプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1f3f1",
+  "theme_color": "#177a49",
+  "icons": [
+    { "src": "./icons/icon-9a-120.png", "sizes": "120x120", "type": "image/png" },
+    { "src": "./icons/icon-9a-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icons/icon-9a-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

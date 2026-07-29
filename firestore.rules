@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// ============================================================
+// Firestore セキュリティルール — 消耗品在庫管理アプリ (zaiko-shohin)
+// 方針: 匿名認証(サインイン済み)のみ読み書き可 + 主要フィールドを検証
+// ※ 本番環境モードの初期ルール(全拒否)から必ずこのルールへ差し替えてください
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function strMax(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    // 品目マスタの妥当性チェック（更新時は結合後のドキュメント全体を検証）
+    function validItem(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && strMax(d.get('model', ''), 100)
+        && d.category in ['保護具', '溶接材料', '刃物・砥石', '資材', '清掃用品']
+        && d.stock is number && d.stock >= 0
+        && d.min is number && d.min >= 0
+        && strMax(d.unit, 20)
+        && d.price is number && d.price >= 0
+        && strMax(d.get('location', ''), 100)
+        && strMax(d.get('shelf', ''), 50)
+        && strMax(d.get('supplier', ''), 100)
+        && strMax(d.get('lead', ''), 50)
+        && d.get('orderStatus', '未発注') in ['未発注', '様子見', '発注済']
+        && strMax(d.get('photo', ''), 2000)
+        && strMax(d.get('photoBy', ''), 60);
+    }
+
+    // 入出庫履歴の妥当性チェック
+    function validLog(d) {
+      return d.itemId is string && d.itemId.size() > 0 && d.itemId.size() <= 100
+        && d.at is timestamp
+        && d.kind in ['入庫', '出庫', '棚卸調整']
+        && d.qty is number
+        && d.after is number && d.after >= 0
+        && strMax(d.get('person', ''), 60)
+        && strMax(d.get('site', ''), 100)
+        && strMax(d.get('memo', ''), 500);
+    }
+
+    // 名前だけのマスタ（現場・担当者）
+    function validNamed(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 100;
+    }
+
+    // 品目マスタ
+    match /items/{itemId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validItem(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 入出庫履歴（記録は作成のみ。改ざん防止のため更新は不可、削除は品目削除時のみ想定）
+    match /logs/{logId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validLog(request.resource.data);
+      allow update: if false;
+      allow delete: if signedIn();
+    }
+
+    // 現場マスタ（出庫時の「使った現場」）
+    match /sites/{siteId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validNamed(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 担当者マスタ（入出庫記録の担当者プルダウン）
+    match /persons/{personId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validNamed(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 上記以外は全面的に拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
