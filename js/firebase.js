@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Firebase 初期化 — Firestore / Storage / 匿名認証
 // 静的サイト（GitHub Pages）から CDN の Firebase v10 モジュールを利用
 // ・Firestore はオフライン永続化を有効化（複数タブ対応）
@@ -19,7 +19,7 @@ import {
   getAuth, signInAnonymously, onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 
-import firebaseConfig from '../firebase-config.js?v=12';
+import firebaseConfig from '../firebase-config.js?v=13';
 
 export const app = initializeApp(firebaseConfig);
 

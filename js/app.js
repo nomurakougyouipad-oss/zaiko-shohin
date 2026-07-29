@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // 消耗品在庫管理アプリ — 画面描画・ルーティング・操作
 // 画面構成:
 //   #/            在庫一覧（PC: テーブル＋KPI／スマホ: カード） + 棚卸モード
@@ -10,14 +10,14 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=12';
-import * as store from './store.js?v=12';
+import { ready } from './firebase.js?v=13';
+import * as store from './store.js?v=13';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=12';
+} from './util.js?v=13';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
