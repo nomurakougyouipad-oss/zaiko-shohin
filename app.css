@@ -169,6 +169,43 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); 
 .kpi .k-value.small { font-size: 34px; }
 .kpi .k-note { font-size: 12px; opacity: .7; margin-top: 6px; }
 
+/* ---------- 区分メニュー（在庫一覧のトップ） ----------
+   品目が増えて一覧のスクロールが長くなったため、まず区分を選ぶ画面を置く。
+   PCは自動折り返しのグリッド、スマホは2列（下のメディアクエリで指定）。 */
+.menu-search { display: flex; gap: 8px; margin-bottom: 20px; }
+.menu-search .input { flex: 1; min-width: 0; }
+.menu-search .btn { min-width: 96px; justify-content: center; }
+.menu-note { font-size: 13px; font-weight: 700; opacity: .7; margin-bottom: 8px; }
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 2px;
+  background: var(--text);
+  border: 2px solid var(--text);
+}
+.cat-tile {
+  background: var(--surface);
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 116px;
+  border-left: 6px solid transparent;
+}
+.cat-tile:hover { background: #eef4ef; }
+.cat-tile.short { border-left-color: var(--red); }
+.cat-tile.all { background: var(--grad-kpi); color: #f1f3f1; }
+.cat-tile.all:hover { background: var(--grad-primary-hover); }
+.cat-tile .ct-name { font-weight: 900; font-size: 17px; line-height: 1.35; word-break: break-word; }
+.cat-tile .ct-count { font-size: 13px; margin-top: auto; }
+.cat-tile .ct-count strong { font-size: 24px; font-weight: 900; margin-right: 2px; }
+.cat-tile .ct-short { font-size: 12px; font-weight: 700; opacity: .55; }
+.cat-tile .ct-short.warn { color: var(--red); opacity: 1; }
+.cat-tile.all .ct-short { opacity: .8; }
+.cat-tile.all .ct-short.warn { color: #ff6a55; opacity: 1; }
+
 /* ---------- レイアウト ---------- */
 .page { padding: 24px; max-width: 1440px; margin: 0 auto; }
 .page-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -313,14 +350,26 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
 }
 .sp-header .row { display: flex; align-items: center; gap: 8px; }
 .sp-header .brand-mark { width: 24px; height: 24px; }
-.sp-header .ttl { font-weight: 900; font-size: 17px; }
+/* 区分名が長くても「戻る」とバッジを押し出さないよう、はみ出しは「…」で省略 */
+.sp-header .ttl {
+  font-weight: 900; font-size: 17px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .sp-header .badge {
   font-size: 12px; color: #fff; font-weight: 700; margin-left: auto; flex: none;
   white-space: nowrap; background: rgba(0,0,0,.28); padding: 2px 8px;
 }
-.sp-header .back { font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; }
+.sp-header .back { font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; flex: none; }
 
-.sp-search { padding: 12px 16px; border-bottom: 2px solid var(--divider); background: var(--bg); }
+.sp-search { padding: 12px 16px 8px; background: var(--bg); }
+/* 一覧ページの絞り込み（保管場所・在庫不足のみ）— 検索欄のすぐ下 */
+.sp-filters {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px 12px; background: var(--bg);
+  border-bottom: 2px solid var(--divider);
+}
+.sp-filters select { flex: 1; min-width: 0; }
+.sp-filters .check { white-space: nowrap; }
 .sp-sortnote {
   padding: 8px 16px; font-size: 11px; opacity: .75; border-bottom: 1px solid var(--divider);
   display: flex; align-items: center; gap: 8px;
@@ -397,8 +446,15 @@ span.pc-only, a.pc-only { display: inline; }
   .page { padding: 16px 16px 96px; }
   .page-head h2 { font-size: 22px; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi { padding: 12px 14px; }
   .kpi .k-value { font-size: 30px; }
   .kpi .k-value.small { font-size: 24px; }
+  /* 区分タイルは2列 */
+  .cat-grid { grid-template-columns: repeat(2, 1fr); }
+  .cat-tile { min-height: 100px; padding: 12px; }
+  .cat-tile .ct-name { font-size: 15px; }
+  .cat-tile .ct-count strong { font-size: 21px; }
+  .menu-search .btn { min-width: 72px; }
   .detail-grid { grid-template-columns: 1fr; gap: 16px; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .modal { width: 100%; }

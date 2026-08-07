@@ -1,7 +1,9 @@
 ﻿// ============================================================
 // 消耗品在庫管理アプリ — 画面描画・ルーティング・操作
 // 画面構成:
-//   #/            在庫一覧（PC: テーブル＋KPI／スマホ: カード） + 棚卸モード
+//   #/            区分メニュー（KPI＋横断検索＋区分タイル）＝在庫一覧のトップ
+//   #/list        在庫一覧・全品目（PC: テーブル／スマホ: カード） + 棚卸モード
+//   #/list/{区分} 在庫一覧・区分で絞り込み
 //   #/item/{id}   品目詳細（PC/スマホ）
 //   #/orders      発注アラート
 //   #/settings    設定（モード切替・現場/担当者マスタ）
@@ -35,9 +37,10 @@ const S = {
   syncedAt: null,
   authError: false,
 
-  route: { view: 'list' },
+  route: { view: 'menu' },
+  listHash: '#/list',   // 直前に見ていた一覧（品目詳細から戻る先）
 
-  // 一覧（PC）
+  // 一覧（PC）※ cat は URL（区分メニューで選んだ区分）から設定される
   q: '', cat: 'すべて', loc: 'すべて', onlyShort: false,
   sortKey: '', sortDir: 'asc', page: 1, pageSize: 50,
 
@@ -129,12 +132,21 @@ window.addEventListener('scroll', () => {
 
 function onRoute() {
   const h = location.hash || '#/';
-  let route = { view: 'list' };
+  let route = { view: 'menu' };
   const mItem = h.match(/^#\/item\/(.+)$/);
+  const mList = h.match(/^#\/list(?:\/(.*))?$/);
   if (mItem) route = { view: 'item', id: decodeURIComponent(mItem[1]) };
+  else if (mList) route = { view: 'list', cat: hashToCat(mList[1]) };
   else if (h === '#/orders') route = { view: 'orders' };
   else if (h === '#/settings') route = { view: 'settings' };
   S.route = route;
+
+  if (route.view === 'list') {
+    S.cat = route.cat;      // 区分は URL 側が持つ（一覧内には区分切替を置かない）
+    S.page = 1;
+    S.spCount = 12;
+    S.listHash = h;         // 品目詳細から「戻る」でこの一覧に帰れるように覚えておく
+  }
 
   // 品目詳細の履歴購読を張り替え（認証完了後のみ。完了時に onRoute が再実行される）
   const wantId = route.view === 'item' && authOk ? route.id : null;
@@ -213,13 +225,32 @@ function connBanner() {
     : '';
 }
 
+// ---------- 一覧: 区分とURL ----------
+// #/list → すべて ／ #/list/{区分名} → その区分 ／ #/list/_none_ → 区分が未設定の品目
+// （区分名そのものが "_none_" の場合は衝突するが、実運用ではまず起きない想定）
+
+const NOCAT = '_none_';
+
+function catHref(cat) {
+  if (cat === 'すべて') return '#/list';
+  return '#/list/' + encodeURIComponent(cat === '' ? NOCAT : cat);
+}
+
+function hashToCat(raw) {
+  if (raw == null || raw === '') return 'すべて';
+  return raw === NOCAT ? '' : decodeURIComponent(raw);
+}
+
+// 区分の表示名（'' は区分未設定の品目）
+const catLabel = (cat) => (cat === '' ? '（区分なし）' : cat);
+
 // ---------- 一覧: フィルタ・並び替え ----------
 
 function filteredItems() {
   const q = S.q.trim();
   const rank = (it) => statusOf(it).rank;
   let list = (S.items || []).filter((it) =>
-    (S.cat === 'すべて' || it.category === S.cat) &&
+    (S.cat === 'すべて' || (it.category || '') === S.cat) &&
     (S.loc === 'すべて' || it.location === S.loc) &&
     (!S.onlyShort || rank(it) < 2) &&
     (!q || ((it.name || '') + (it.model || '') + (it.location || '') + (it.supplier || '')).includes(q))
@@ -265,9 +296,11 @@ function locationNames() {
   return names;
 }
 
-// ---------- 画面1/1a/4: 在庫一覧 ----------
+// ---------- 画面1: 区分メニュー（在庫一覧のトップ） ----------
+// 品目が増えて1本の長い一覧が見にくくなったため、まず区分を選ぶ画面を挟む。
+// 上部は従来のKPIカード、その下に横断検索、さらに下に区分タイル。
 
-function viewList() {
+function viewMenu() {
   const items = S.items || [];
   const shortage = items.filter((i) => statusOf(i).rank < 2);
   const reorder = items.filter((i) => statusOf(i).rank === 0);
@@ -280,6 +313,100 @@ function viewList() {
   }).length;
   const diff = outThis - outPrev;
   const stockValue = items.reduce((t, i) => t + num(i.price) * num(i.stock), 0);
+
+  // 区分ごとの品目数・在庫不足件数（1回のループで集計）
+  const stat = new Map();
+  for (const it of items) {
+    const k = it.category || '';
+    let e = stat.get(k);
+    if (!e) { e = { n: 0, short: 0 }; stat.set(k, e); }
+    e.n++;
+    if (statusOf(it).rank < 2) e.short++;
+  }
+
+  const cats = categoryNames();
+  const tile = (cat, label, sum) => {
+    const e = sum || stat.get(cat) || { n: 0, short: 0 };
+    return `
+    <div class="cat-tile${sum ? ' all' : ''}${e.short ? ' short' : ''}" data-act="goto-cat" data-cat="${esc(cat)}">
+      <div class="ct-name">${esc(label)}</div>
+      <div class="ct-count"><strong class="num">${e.n}</strong> 品目</div>
+      <div class="ct-short${e.short ? ' warn' : ''}">${e.short ? `在庫不足 ${e.short} 件` : '在庫不足なし'}</div>
+    </div>`;
+  };
+  const noCat = stat.get('');
+  const tiles = [
+    tile('すべて', 'すべて', { n: items.length, short: shortage.length }),
+    ...cats.map((c) => tile(c, c, null)),
+    ...(noCat && noCat.n ? [tile('', catLabel(''), null)] : []),
+  ].join('');
+
+  return `
+  ${pcHeader('#/')}
+  <div class="sp-only">
+    <div class="sp-header">
+      <div class="row">
+        <span class="brand-mark">${MARK_SVG}</span>
+        <span class="ttl">在庫一覧</span>
+        <span class="badge">在庫不足 ${shortage.length} 件</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="page-head pc-only">
+      <h2>在庫一覧</h2>
+      <div class="sub">最終同期 ${S.syncedAt ? fmtDateJa(S.syncedAt) + ' ' + String(S.syncedAt.getHours()).padStart(2, '0') + ':' + String(S.syncedAt.getMinutes()).padStart(2, '0') : '—'}</div>
+      <div style="margin-left:auto" class="office-only">
+        <button class="btn btn-primary" data-act="new-item">＋新規登録</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="k-label">登録品目数</div>
+        <div class="k-value">${items.length}</div>
+        <div class="k-note">区分 ${cats.length} 分類</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">在庫不足</div>
+        <div class="k-value ${shortage.length ? 'warn' : ''}">${shortage.length}</div>
+        <div class="k-note">うち要発注 ${reorder.length} 件</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">今月の出庫件数</div>
+        <div class="k-value">${outThis}</div>
+        <div class="k-note">前月比 ${diff >= 0 ? '+' : ''}${diff} 件</div>
+      </div>
+      <div class="kpi">
+        <div class="k-label">在庫金額（概算）</div>
+        <div class="k-value small">${YEN(stockValue)}</div>
+        <div class="k-note">発注中 ${ordering.length} 件</div>
+      </div>
+    </div>
+
+    <form class="menu-search" data-form="menu-search">
+      <input id="menuq" class="input" type="search" name="q" value="${esc(S.q)}"
+        placeholder="全区分から検索（品名・型番・保管場所・仕入先）">
+      <button class="btn btn-primary" type="submit">検索</button>
+    </form>
+
+    <div class="menu-note">区分を選ぶとその区分の一覧を表示します</div>
+    <div class="cat-grid">${tiles}</div>
+  </div>
+  <div class="sp-only">
+    <button class="btn btn-primary fab office-only" data-act="new-item" aria-label="品目を新規登録" title="品目を新規登録">＋</button>
+  </div>
+  ${tabbar('list')}`;
+}
+
+// ---------- 画面1a/4: 在庫一覧（区分で絞り込み） ----------
+
+function viewList() {
+  const items = S.items || [];
+  const inCat = S.cat === 'すべて' ? items : items.filter((i) => (i.category || '') === S.cat);
+  const shortage = inCat.filter((i) => statusOf(i).rank < 2);
+  const title = S.cat === 'すべて' ? 'すべての品目' : catLabel(S.cat);
 
   const visible = filteredItems();
   const total = visible.length;
@@ -341,12 +468,8 @@ function viewList() {
     </tr>`;
   }).join('');
 
-  const cats = categoryNames();
   const locs = locationNames();
-  if (S.cat !== 'すべて' && !cats.includes(S.cat)) S.cat = 'すべて'; // 名前変更・削除後の保険
-  if (S.loc !== 'すべて' && !locs.includes(S.loc)) S.loc = 'すべて';
-  const catSeg = ['すべて', ...cats].map((c) =>
-    `<span class="seg-opt ${S.cat === c ? 'on' : ''}" data-act="set-cat" data-cat="${esc(c)}">${esc(c)}</span>`).join('');
+  if (S.loc !== 'すべて' && !locs.includes(S.loc)) S.loc = 'すべて'; // 名前変更・削除後の保険
   const locOpts = ['すべて', ...locs].map((l) =>
     `<option value="${esc(l)}" ${S.loc === l ? 'selected' : ''}>${esc(l)}</option>`).join('');
 
@@ -375,13 +498,17 @@ function viewList() {
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
-        <span class="brand-mark">${MARK_SVG}</span>
-        <span class="ttl">在庫一覧</span>
+        <span class="back" data-nav="#/">＜ 区分メニュー</span>
+        <span class="ttl" style="margin-left:8px">${esc(title)}</span>
         <span class="badge">在庫不足 ${shortage.length} 件</span>
       </div>
     </div>
     <div class="sp-search">
-      <input id="spkw" class="input" type="text" placeholder="品名・型番で検索" value="${esc(S.q)}" data-input="query">
+      <input id="spkw" class="input" type="text" placeholder="品名・型番・保管場所・仕入先で検索" value="${esc(S.q)}" data-input="query">
+    </div>
+    <div class="sp-filters">
+      <select id="basho-sp" class="input" data-change="loc" aria-label="保管場所で絞り込み">${locOpts}</select>
+      <label class="check"><input type="checkbox" ${S.onlyShort ? 'checked' : ''} data-change="only-short">在庫不足のみ</label>
     </div>
     <div class="sp-sortnote">
       <span>${S.spSort === 'status' ? '要発注 → 少ない → 十分 の順に表示' : '最近入出庫した順に表示'}（全 ${spSorted.length} 件）</span>
@@ -398,8 +525,10 @@ function viewList() {
   </div>
 
   <div class="page pc-only">
+    <div style="font-size:13px;margin-bottom:12px"><a data-nav="#/">← 区分メニューに戻る</a></div>
     <div class="page-head">
-      <h2>在庫一覧</h2>
+      <h2>${esc(title)}</h2>
+      <div class="sub">全 ${inCat.length} 品目／在庫不足 ${shortage.length} 件</div>
       <div class="sub">最終同期 ${S.syncedAt ? fmtDateJa(S.syncedAt) + ' ' + String(S.syncedAt.getHours()).padStart(2, '0') + ':' + String(S.syncedAt.getMinutes()).padStart(2, '0') : '—'}</div>
       <div style="margin-left:auto" class="office-only">
         <button class="btn btn-primary" data-act="new-item">＋新規登録</button>
@@ -415,38 +544,12 @@ function viewList() {
         <button class="btn" data-act="stocktake-cancel">棚卸を中止</button>
         <button class="btn btn-primary" data-act="stocktake-commit">棚卸を確定</button>
       </span>
-    </div>` : `
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="k-label">登録品目数</div>
-        <div class="k-value">${items.length}</div>
-        <div class="k-note">区分 ${CATEGORIES.length} 分類</div>
-      </div>
-      <div class="kpi">
-        <div class="k-label">在庫不足</div>
-        <div class="k-value ${shortage.length ? 'warn' : ''}">${shortage.length}</div>
-        <div class="k-note">うち要発注 ${reorder.length} 件</div>
-      </div>
-      <div class="kpi">
-        <div class="k-label">今月の出庫件数</div>
-        <div class="k-value">${outThis}</div>
-        <div class="k-note">前月比 ${diff >= 0 ? '+' : ''}${diff} 件</div>
-      </div>
-      <div class="kpi">
-        <div class="k-label">在庫金額（概算）</div>
-        <div class="k-value small">${YEN(stockValue)}</div>
-        <div class="k-note">発注中 ${ordering.length} 件</div>
-      </div>
-    </div>`}
+    </div>` : ''}
 
     <div class="filters">
       <div class="field" style="flex:1;min-width:280px">
         <label for="kw">検索</label>
         <input id="kw" class="input" type="text" placeholder="品名・型番・保管場所・仕入先で検索" value="${esc(S.q)}" data-input="query">
-      </div>
-      <div class="field">
-        <label>区分</label>
-        <div class="seg">${catSeg}</div>
       </div>
       <div class="field" style="width:180px">
         <label for="basho">保管場所</label>
@@ -505,7 +608,7 @@ function viewItem() {
   if (!item) {
     return `${pcHeader('')}<div class="page">
       <div style="padding:32px 0;font-size:14px;opacity:.7">${S.items === null ? '読み込み中…' : 'この品目は見つかりません（削除された可能性があります）。'}</div>
-      <a data-nav="#/">← 在庫一覧へ戻る</a></div>${tabbar('list')}`;
+      <a data-nav="${esc(S.listHash)}">← 在庫一覧へ戻る</a></div>${tabbar('list')}`;
   }
   const d = decorate(item);
   const photoInfo = item.photo
@@ -536,7 +639,7 @@ function viewItem() {
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
-        <span class="back" data-nav="#/">＜ 在庫一覧</span>
+        <span class="back" data-nav="${esc(S.listHash)}">＜ 在庫一覧</span>
         <span class="ttl" style="margin-left:auto;font-size:15px">品目詳細</span>
       </div>
     </div>
@@ -581,7 +684,7 @@ function viewItem() {
   </div>
 
   <div class="page pc-only">
-    <div style="font-size:13px;margin-bottom:12px"><a data-nav="#/">在庫一覧</a><span style="opacity:.5">　＞　品目詳細</span></div>
+    <div style="font-size:13px;margin-bottom:12px"><a data-nav="${esc(S.listHash)}">在庫一覧</a><span style="opacity:.5">　＞　品目詳細</span></div>
     <div class="detail-grid">
       <div>
         <div class="photo-box">
@@ -1374,7 +1477,8 @@ function render() {
   } else if (S.route.view === 'item') view = viewItem();
   else if (S.route.view === 'orders') view = viewOrders();
   else if (S.route.view === 'settings') view = viewSettings();
-  else view = viewList();
+  else if (S.route.view === 'list') view = viewList();
+  else view = viewMenu();
 
   appEl.innerHTML = connBanner() + view;
 
@@ -1403,7 +1507,11 @@ document.addEventListener('click', (e) => {
     // 一覧
     case 'goto-item': location.hash = '#/item/' + encodeURIComponent(id); break;
     case 'photo-view': openPhotoViewer((S.items || []).find((i) => i.id === id)); break;
-    case 'set-cat': S.cat = el.dataset.cat; S.page = 1; S.spCount = 12; render(); break;
+    // 区分メニューのタイル → その区分の一覧へ（絞り込みは毎回まっさらな状態から）
+    case 'goto-cat':
+      S.q = ''; S.loc = 'すべて'; S.onlyShort = false;
+      location.hash = catHref(el.dataset.cat);
+      break;
     case 'page-prev': S.page = Math.max(1, S.page - 1); render(); window.scrollTo(0, 0); break;
     case 'page-next': S.page = S.page + 1; render(); window.scrollTo(0, 0); break;
     case 'sp-more': S.spCount += 12; render(); break;
@@ -1439,7 +1547,7 @@ document.addEventListener('click', (e) => {
       if (!it) break;
       if (!confirm(`「${it.name}」を削除しますか？\n入出庫履歴と写真も削除されます。この操作は取り消せません。`)) break;
       store.deleteItem(it);
-      location.hash = '#/';
+      location.hash = S.listHash;
       toast('品目を削除しました');
       break;
     }
@@ -1548,6 +1656,15 @@ document.addEventListener('submit', (e) => {
   e.preventDefault();
   switch (form.dataset.form) {
     case 'item-form': submitItemForm(form); break;
+    // 区分メニューの検索 → 全区分を対象にした一覧へ遷移
+    case 'menu-search': {
+      S.q = String(new FormData(form).get('q') || '').trim();
+      S.loc = 'すべて'; S.onlyShort = false;
+      const el = document.getElementById('menuq');
+      if (el) el.blur(); // スマホのキーボードを閉じてから遷移
+      location.hash = '#/list';
+      break;
+    }
     case 'add-site': {
       const name = String(new FormData(form).get('name') || '').trim();
       if (name) { store.addSite(name); form.reset(); }
