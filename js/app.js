@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=18';
-import * as store from './store.js?v=18';
-import * as steel from './steel.js?v=18';
-import * as home from './home.js?v=18';
+import { ready } from './firebase.js?v=19';
+import * as store from './store.js?v=19';
+import * as steel from './steel.js?v=19';
+import * as home from './home.js?v=19';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=18';
+} from './util.js?v=19';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -71,27 +71,9 @@ let F = null; // { id } id=null なら新規
 
 const mode = () => local.get('mode', 'office'); // 'office' | 'field'
 
-// ---------- 起動画面（スプラッシュ） ----------
-// 初回データ到着でフェードアウト。一瞬で消えてチラつかないよう最低0.8秒は表示する。
-// 読み込みに失敗した場合もエラー表示が見えるよう、必ず消す（保険の8秒タイムアウト付き）。
-
-const SPLASH_MIN_MS = 800;
-const splashShownAt = Date.now();
-
-function hideSplash() {
-  const el = document.getElementById('splash');
-  if (!el || el.dataset.hiding) return;
-  el.dataset.hiding = '1';
-  const rest = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
-  setTimeout(() => {
-    el.classList.add('splash-hide'); // 文字がズームイン(scale 1→9)しつつフェードアウト
-    setTimeout(() => el.remove(), 500); // アニメーション(0.45s)後にDOMから除去
-  }, rest);
-}
-
-setTimeout(hideSplash, 8000); // 保険: 何かに失敗しても起動画面で固まらない
-
 // ---------- 起動 ----------
+// スプラッシュは廃止。ファイル末尾の onRoute() で即座に玄関を描画するので、
+// Firebase の応答を待たずに最初のフレームから玄関が出る。
 // ※ 購読は必ず匿名サインイン完了後に開始する（未認証だと permission-denied で
 //    リスナーが終了し、その後サインインしても復活しないため）
 
@@ -136,8 +118,7 @@ ready.then(() => {
     // 区分・保管場所マスタが未作成なら、現在の選択肢＋使用中の値で自動作成
     if (!mastersSeeded && items.length) { mastersSeeded = true; store.ensureMasters(items); }
     render();
-    hideSplash(); // 初回読み込み完了 → 起動画面をフェードアウト
-  }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); hideSplash(); });
+  }, (e) => { console.error('items購読エラー:', e); S.authError = true; render(); });
 
   store.watchRecentLogs((logs) => { S.recentLogs = logs; render(); },
     (e) => console.error('logs購読エラー:', e));
@@ -151,7 +132,7 @@ ready.then(() => {
     (e) => console.error('locations購読エラー:', e));
 
   onRoute(); // 品目詳細を直接開いた場合の履歴購読を認証後にやり直す
-}).catch(() => { S.authError = true; render(); hideSplash(); });
+}).catch(() => { S.authError = true; render(); });
 
 window.addEventListener('hashchange', onRoute);
 // ※ 初回の onRoute() はファイル末尾で呼ぶ（後方の const 宣言より先に実行させないため）

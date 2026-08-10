@@ -44,10 +44,6 @@ a:hover { color: var(--green); text-decoration: underline; }
 .num { font-variant-numeric: tabular-nums; }
 .right { text-align: right; }
 
-/* ---------- 起動画面（スプラッシュ） ----------
-   スタイルは index.html にインラインで記述している（外部CSS読み込み前から
-   1フレーム目で正しく表示するため）。ここには置かないこと。 */
-
 /* ---------- ボタン ---------- */
 .btn {
   display: inline-flex;
@@ -293,7 +289,7 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
    position:fixed; inset:0 の要素は iPhone のステータスバー／ホームバーの下まで
    広がるため、上下に env(safe-area-inset-*) を必ず足す。
    新しい全画面オーバーレイを作るときは .modal-back を使うか、この padding を踏襲すること。
-   （.photoviewer / .tabbar / .fab / #splash は個別に対応済み） */
+   （.photoviewer / .tabbar / .fab は個別に対応済み） */
 .modal-back {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(11,14,12,.6);

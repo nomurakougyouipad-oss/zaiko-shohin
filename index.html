@@ -14,57 +14,20 @@
 <link rel="icon" href="./icons/icon-v2-48.png" sizes="48x48" type="image/png">
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-v2-180.png">
 <style>
-  /* 起動画面（スプラッシュ）のスタイルはインライン化してある。
-     外部CSSの読み込みを待たずに1フレーム目から正しく表示するため
-     （PWA起動直後の白いちらつき対策）。app.css側には置かないこと。 */
+  /* 起動直後の背景色だけインラインで持つ。外部CSSの読み込みを待たずに
+     1フレーム目から玄関と同じ白で塗り、PWA起動時のちらつきを防ぐため。
+     （スプラッシュは廃止。起動したらそのまま玄関画面を出す） */
   html, body { margin: 0; background: #fff; }
-  #splash {
-    position: fixed; inset: 0; z-index: 999;
-    display: flex; align-items: center; justify-content: center;
-    background: #fff;
-    opacity: 1;
-    transition: opacity .45s ease-in;
-  }
-  #splash .splash-logo {
-    width: min(27vw, 240px); height: auto; display: block;
-    transform: scale(1);
-    transform-origin: center center;
-    will-change: transform, opacity;
-    transition: transform .45s ease-in;
-  }
-  #splash.splash-hide { opacity: 0; pointer-events: none; }
-  #splash.splash-hide .splash-logo { transform: scale(9); }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 消耗品セクション: Noto Sans JP ／ 玄関・鋼材セクション: M PLUS Rounded 1c（1リクエストにまとめる） -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="./app.css?v=18">
-<link rel="stylesheet" href="./steel.css?v=18">
+<link rel="stylesheet" href="./app.css?v=19">
+<link rel="stylesheet" href="./steel.css?v=19">
 </head>
 <body>
-<!-- 起動画面（スプラッシュ）: アプリアイコンのマーク（STK＋上下矢印）をSVGで再現。
-     読み込み完了後、マークがズームインしながらフェードアウト。
-     ※ アイコンPNGは枠線入りのため白背景には使わず、SVGで描画する -->
-<div id="splash" aria-hidden="true">
-  <svg class="splash-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <g fill="#17a35c">
-      <g transform="translate(12,8) scale(0.46)">
-        <path d="M30 12 h14 v40 h14 L37 78 L16 52 h14 z"/>
-        <path d="M70 88 h-14 v-40 h-14 L63 22 L84 48 h-14 z"/>
-      </g>
-      <text x="13" y="77" font-size="27" font-weight="900" letter-spacing="1.5"
-        font-family="'Noto Sans JP', system-ui, -apple-system, sans-serif">STK</text>
-      <rect x="14" y="82" width="72" height="5.5"/>
-    </g>
-  </svg>
-</div>
 <script>
-  // 保険: 万一アプリ側の処理が走らなくても、起動画面のまま固まらないようにする
-  setTimeout(function () {
-    var s = document.getElementById('splash');
-    if (s) { s.classList.add('splash-hide'); setTimeout(function () { s.remove(); }, 500); }
-  }, 10000);
   // iOS Safari はビューポート設定(user-scalable=no)を無視することがあるため、
   // ジェスチャーイベントを止めてページ全体のピンチズームを抑止する。
   // （写真ビューアの拡大は独自実装のため影響なし）
@@ -76,7 +39,7 @@
 </div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<script type="module" src="./js/app.js?v=18"></script>
+<script type="module" src="./js/app.js?v=19"></script>
 <script>
   // PWA: Service Worker 登録（ローカルファイル直開きでは無効）
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

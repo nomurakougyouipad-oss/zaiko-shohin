@@ -8,8 +8,8 @@
 // 消耗品側のデータは app.js が持っているので、init() で読み出し口を受け取る。
 // ============================================================
 
-import * as steel from './steel.js?v=18';
-import { esc } from './util.js?v=18';
+import * as steel from './steel.js?v=19';
+import { esc } from './util.js?v=19';
 
 const H = { q: '' };
 
@@ -57,7 +57,6 @@ export function view() {
 
     <div class="home-brand">
       <div class="home-logo">STK</div>
-      <div class="home-name">よつば在庫</div>
     </div>
 
     <div class="home-spacer"></div>
