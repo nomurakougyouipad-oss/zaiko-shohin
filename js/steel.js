@@ -14,14 +14,14 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=16';
+import * as sstore from './steel-store.js?v=17';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
-} from './steel-util.js?v=16';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=16';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=16';
+} from './steel-util.js?v=17';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=17';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=17';
 
 // ---------- 状態 ----------
 
@@ -42,6 +42,7 @@ const T = {
 
   add: null,              // 在庫に追加モーダル { id, site, qty }
   imp: null,              // CSV取込モーダル { name, rows, errors, unknownHeaders, summary, running, doneCount }
+  del: null,              // 差分削除モーダル { name, targets, keptInStock, errors, csvCount, running, doneCount }
   toastMsg: null,
 };
 
@@ -467,12 +468,22 @@ function viewSettings() {
           品目カタログをまとめて登録・更新します。文字コードは UTF-8 / Shift-JIS のどちらでも読み込めます。<br>
           同じ品目（種類・材質・サイズ・スケジュールが一致）は二重登録されず、上書き更新されます。
         </div>
-        <input type="file" id="st-csv-file" accept=".csv,text/csv" data-schange="csv-file" style="display:none">
         <div style="display:flex;flex-direction:column;gap:8px">
           <button class="st-btn st-btn-primary st-btn-block" data-sact="pick-csv">CSVファイルを選ぶ</button>
           <button class="st-btn st-btn-block" data-sact="export-csv">現在の品目をCSVに書き出す</button>
           <button class="st-btn st-btn-block" data-sact="export-template">取込用テンプレート（見出しのみ）を書き出す</button>
         </div>
+      </div>
+
+      <div class="st-card st-office-only">
+        <div class="st-card-title">差分削除（取込に無い品目を消す）</div>
+        <div class="st-note" style="margin:0 0 12px">
+          CSVに含まれない品目をカタログから削除します。<br>
+          品目の見分けは「種類・材質・サイズ・スケジュール」で行うため、この4項目をCSV側で直すと
+          古い品目がカタログに取り残されます。その掃除に使います。<br>
+          <strong>在庫に出している品目は削除しません。</strong>
+        </div>
+        <button class="st-btn st-btn-danger st-btn-block" data-sact="pick-diff">CSVを選んで差分削除</button>
       </div>
 
       ${!isOffice() ? `<div class="st-warn">現場モードのため、CSV取込などの編集操作は使えません。設定から事務所モードに切り替えてください。</div>` : ''}
@@ -586,6 +597,66 @@ function importModalHtml() {
                 ${okCount ? `正常な ${okCount} 件を取り込む` : '取り込める行がありません'}
               </button>
               <button class="st-btn st-btn-block" data-sact="close-imp">中止する</button>
+            </div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------- モーダル: 差分削除の確認 ----------
+
+function diffModalHtml() {
+  if (!T.del) return '';
+  const d = T.del;
+  const n = d.targets.length;
+  // エラー行がある状態で消すと、その品目まで「CSVに無い」と判定されてしまう
+  const blocked = d.errors.length > 0;
+
+  return `
+  <div class="st-modal-back" data-sact="close-del">
+    <div class="st-modal" data-sstop>
+      <div class="st-modal-head">
+        <div class="m-title">差分削除の確認</div>
+        <button class="st-modal-x" data-sact="close-del" aria-label="閉じる">${ICON_X}</button>
+      </div>
+      <div class="rows">
+        <div style="font-size:13px;color:var(--st-n700)">${esc(d.name)}</div>
+
+        <div class="st-prev">
+          <div class="p-box${n ? ' err' : ''}"><div class="p-n">${n}</div><div class="p-l">削除する</div></div>
+          <div class="p-box"><div class="p-n">${d.keptInStock.length}</div><div class="p-l">在庫のため除外</div></div>
+          <div class="p-box"><div class="p-n">${d.csvCount}</div><div class="p-l">CSVの品目</div></div>
+        </div>
+
+        ${blocked ? `
+          <div class="st-warn">
+            このCSVには取込エラーが ${d.errors.length} 件あります。<br>
+            エラー行の品目まで「CSVに無い」と判定して消してしまうため、差分削除は実行できません。
+            先にCSVのエラーを直してください。
+          </div>` : ''}
+
+        ${d.keptInStock.length ? `
+          <div class="st-note" style="margin:0">
+            在庫に出している ${d.keptInStock.length} 件は、CSVに無くても削除しません。
+            不要なら品目詳細から非表示にしてください。
+          </div>` : ''}
+
+        ${n ? `
+          <div>
+            <div class="st-label">削除する品目</div>
+            <div class="st-errlist">
+              ${d.targets.slice(0, 200).map((c) => `<div>${esc(c.name || c.id)}</div>`).join('')}
+              ${n > 200 ? `<div>…ほか ${n - 200} 件</div>` : ''}
+            </div>
+          </div>` : `<div class="st-note" style="margin:0">CSVに無い品目はありません。削除するものはありません。</div>`}
+
+        ${d.running
+          ? `<div class="st-note" style="margin:0">削除しています… ${d.doneCount} / ${n}</div>`
+          : `<div style="display:flex;flex-direction:column;gap:8px">
+              <button class="st-btn st-btn-danger st-btn-block" data-sact="commit-del" ${n && !blocked ? '' : 'disabled'}>
+                ${n && !blocked ? `${n} 件を削除する` : '削除できる品目がありません'}
+              </button>
+              <button class="st-btn st-btn-block" data-sact="close-del">中止する</button>
             </div>`}
       </div>
     </div>
@@ -711,11 +782,17 @@ export function view() {
   else if (T.route.view === 'settings') { sp = viewSettings(); pc = viewSettings(); }
   else { sp = viewBrowse(); pc = viewPc(); }
 
+  // ファイル入力はスマホ版・PC版の外に1つだけ置く。
+  // 画面本体は .st-sp と .st-pc-only に2回描画されるため、この中に入れると
+  // 同じ id の要素が2つでき、getElementById が非表示側を掴んでしまう。
   return `
     <div class="st-sp">${sp}</div>
     <div class="st-pc-only">${pc}</div>
+    <input type="file" id="st-csv-file" accept=".csv,text/csv" data-schange="csv-file" style="display:none">
+    <input type="file" id="st-diff-file" accept=".csv,text/csv" data-schange="diff-file" style="display:none">
     ${addModalHtml()}
     ${importModalHtml()}
+    ${diffModalHtml()}
     ${toastHtml()}`;
 }
 
@@ -751,7 +828,8 @@ function bindEvents() {
     if (!el) return;
     // モーダルの中身をクリックしたときに背景の「閉じる」が反応しないように
     const act = el.dataset.sact;
-    if ((act === 'close-add' || act === 'close-imp') && e.target.closest('[data-sstop]') && el.matches('.st-modal-back')) return;
+    if ((act === 'close-add' || act === 'close-imp' || act === 'close-del')
+      && e.target.closest('[data-sstop]') && el.matches('.st-modal-back')) return;
 
     const id = el.dataset.id;
 
@@ -840,6 +918,15 @@ function bindEvents() {
       }
       case 'close-imp': if (!T.imp?.running) { T.imp = null; _render(); } break;
       case 'commit-imp': runImport(); break;
+
+      // 差分削除
+      case 'pick-diff': {
+        const f = document.getElementById('st-diff-file');
+        if (f) { f.value = ''; f.click(); }
+        break;
+      }
+      case 'close-del': if (!T.del?.running) { T.del = null; _render(); } break;
+      case 'commit-del': runDiffDelete(); break;
     }
   });
 
@@ -847,6 +934,7 @@ function bindEvents() {
     const el = e.target.closest('[data-schange]');
     if (!el) return;
     if (el.dataset.schange === 'csv-file') readCsvFile(el.files && el.files[0]);
+    if (el.dataset.schange === 'diff-file') readDiffFile(el.files && el.files[0]);
   });
 }
 
@@ -907,6 +995,66 @@ async function runImport() {
     console.error('CSV取込に失敗:', e);
     if (T.imp) T.imp.running = false;
     toast('取込に失敗しました。電波状況を確認してください');
+  }
+  _render();
+}
+
+// ---------- 差分削除の処理 ----------
+
+function readDiffFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const { rows, errors } = parseCatalogCsv(decodeCsv(reader.result));
+      const build = (catalog) => {
+        const csvKeys = new Set(rows.map((r) => r.key));
+        const { targets, keptInStock } = sstore.planDiffDelete(catalog, csvKeys, stockMap());
+        T.del = {
+          name: file.name,
+          targets: targets.sort(compareItems),
+          keptInStock,
+          errors,
+          csvCount: rows.length,
+          running: false, doneCount: 0,
+        };
+        _render();
+      };
+      toast('カタログを読み込んでいます…');
+      sstore.loadCatalog()
+        .then((cat) => { T.catalog = cat; T.catalogState = 'ready'; build(cat); })
+        .catch((e) => {
+          console.error('カタログの読み込みに失敗:', e);
+          toast('カタログを読み込めませんでした');
+        });
+    } catch (err) {
+      console.error('CSVの読み込みに失敗:', err);
+      toast('CSVを読み込めませんでした');
+    }
+  };
+  reader.onerror = () => toast('ファイルを読み込めませんでした');
+  reader.readAsArrayBuffer(file);
+}
+
+async function runDiffDelete() {
+  if (!T.del || T.del.running || !T.del.targets.length || T.del.errors.length) return;
+  const n = T.del.targets.length;
+  if (!confirm(`${n} 件を削除します。よろしいですか？\nこの操作は取り消せません。`)) return;
+
+  T.del.running = true;
+  _render();
+  try {
+    await sstore.deleteCatalogByIds(T.del.targets.map((c) => c.id), {
+      onProgress: (done) => { if (T.del) { T.del.doneCount = done; _render(); } },
+    });
+    T.del = null;
+    T.catalog = null;
+    T.catalogState = 'idle'; // 次に開くときに読み直す
+    toast(`${n} 件を削除しました`);
+  } catch (e) {
+    console.error('差分削除に失敗:', e);
+    if (T.del) T.del.running = false;
+    toast('削除に失敗しました。電波状況を確認してください');
   }
   _render();
 }

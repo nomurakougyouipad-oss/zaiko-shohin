@@ -9,7 +9,11 @@
      このファイルのセレクタは必ず .steel / .home 配下にして詳細度で勝たせている
    ============================================================ */
 
-.steel, .home {
+/* トークンは :root に置く。
+   モーダル（.st-modal-back）は .steel の外側に描画されるため、
+   .steel スコープに変数を定義していると var() が解決できず
+   背景が透明になって下の画面と文字が重なる。 */
+:root {
   --st-accent-500: #ff563c;
   --st-accent-600: #dd2b0f;
   --st-accent-700: #ae1800;
@@ -23,7 +27,9 @@
   --st-grad: linear-gradient(135deg, var(--st-accent-600), var(--st-accent-800));
   --st-grad-green: linear-gradient(135deg, #2aa568, #1c6b45);
   --st-radius: 14px;
+}
 
+.steel, .home {
   font-family: "M PLUS Rounded 1c", "Noto Sans JP", system-ui, sans-serif;
   color: var(--st-text);
 }
@@ -264,7 +270,8 @@
 
 .st-modal-back {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(32, 30, 29, .55);
+  /* 下の画面が透けて文字が重ならないよう、しっかり暗くする */
+  background: rgba(20, 18, 17, .72);
   display: grid; place-items: center;
   padding: calc(16px + env(safe-area-inset-top, 0px)) 16px
            calc(16px + env(safe-area-inset-bottom, 0px));
@@ -272,7 +279,10 @@
 }
 .st-modal {
   width: 480px; max-width: 100%; max-height: 100%; overflow-y: auto; margin: auto;
-  background: var(--st-bg); border: 2px solid var(--st-text);
+  /* 背景色は必ず不透明の実色で指定する（var が解決できない場所でも透けないように） */
+  background: #ffffff; border: 2px solid var(--st-text);
+  color: var(--st-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
   border-radius: 16px !important; padding: 20px;
   font-family: "M PLUS Rounded 1c", "Noto Sans JP", system-ui, sans-serif;
 }

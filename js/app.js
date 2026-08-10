@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=16';
-import * as store from './store.js?v=16';
-import * as steel from './steel.js?v=16';
-import * as home from './home.js?v=16';
+import { ready } from './firebase.js?v=17';
+import * as store from './store.js?v=17';
+import * as steel from './steel.js?v=17';
+import * as home from './home.js?v=17';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=16';
+} from './util.js?v=17';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -214,6 +214,34 @@ const MARK_SVG = `<svg viewBox="0 0 100 100"><path d="M30 12 h14 v40 h14 L37 78 
 const HOME_MARK = `<span class="brand-mark home-mark" data-nav="#/" role="button" tabindex="0"
   aria-label="玄関にもどる" title="玄関にもどる">${MARK_SVG}</span>`;
 
+// スマホヘッダーの「ホーム（玄関）」ボタン。
+// 以前はロゴマークを兼用していたが、隣の「戻る」と見分けがつかず
+// 一段だけ戻ったつもりで玄関まで飛んでしまうため、家アイコンの独立ボタンに分けた。
+const ICON_HOME_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>`;
+const HOME_BTN = `<span class="home-btn" data-nav="#/" role="button" tabindex="0"
+  aria-label="玄関にもどる" title="玄関にもどる">${ICON_HOME_SVG}</span>`;
+
+// スマホの共通ヘッダー: [＜ 戻り先] [ホーム] タイトル [バッジ]
+// 階層は 玄関 > 区分メニュー > 在庫一覧 > 品目詳細。back には一段上の画面を渡す。
+function spHeader({ title, back = null, backLabel = '', home = true, badge = '', titleStyle = '' }) {
+  return `
+  <div class="sp-header">
+    <div class="row">
+      ${back ? `<span class="back" data-nav="${esc(back)}">＜ ${esc(backLabel)}</span>` : ''}
+      ${home ? HOME_BTN : ''}
+      <span class="ttl"${titleStyle ? ` style="${titleStyle}"` : ''}>${esc(title)}</span>
+      ${badge}
+    </div>
+  </div>`;
+}
+
+// 品目詳細の「戻る」に出すラベル（直前に見ていた区分の名前）
+function listBackLabel() {
+  const m = String(S.listHash).match(/^#\/list(?:\/(.*))?$/);
+  const cat = hashToCat(m ? m[1] : null);
+  return cat === 'すべて' ? '在庫一覧' : catLabel(cat);
+}
+
 function decorate(it) {
   const st = statusOf(it);
   return { ...it, ...st, priceLabel: YEN(it.price), valueLabel: YEN(num(it.price) * num(it.stock)) };
@@ -237,8 +265,10 @@ function pcHeader(active) {
   <header class="pc-header pc-only">
     <span class="brand">
       ${HOME_MARK}
-      <span class="brand-name">よつば建設工業</span>
-      <span class="brand-sub">消耗品在庫管理</span>
+      <span class="brand-text">
+        <span class="brand-name">よつば建設工業</span>
+        <span class="brand-sub">消耗品在庫管理</span>
+      </span>
     </span>
     <nav class="pc-nav">
       ${navLink('#/', '玄関')}
@@ -391,13 +421,12 @@ function viewMenu() {
   return `
   ${pcHeader('#/shohin')}
   <div class="sp-only">
-    <div class="sp-header">
-      <div class="row">
-        ${HOME_MARK}
-        <span class="ttl">在庫一覧</span>
-        <span class="badge">在庫不足 ${shortage.length} 件</span>
-      </div>
-    </div>
+    ${spHeader({
+      title: '在庫一覧',
+      // 区分メニューの一段上は玄関。ホームと同じ行き先になるのでアイコンは出さない
+      back: '#/', backLabel: '玄関', home: false,
+      badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
+    })}
   </div>
 
   <div class="page">
@@ -543,14 +572,11 @@ function viewList() {
   return `
   ${pcHeader('#/shohin')}
   <div class="sp-only">
-    <div class="sp-header">
-      <div class="row">
-        ${HOME_MARK}
-        <span class="back" data-nav="#/shohin">＜ 区分メニュー</span>
-        <span class="ttl" style="margin-left:8px">${esc(title)}</span>
-        <span class="badge">在庫不足 ${shortage.length} 件</span>
-      </div>
-    </div>
+    ${spHeader({
+      title,
+      back: '#/shohin', backLabel: '区分メニュー',
+      badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
+    })}
     <div class="sp-search">
       <input id="spkw" class="input" type="text" placeholder="品名・型番・保管場所・仕入先で検索" value="${esc(S.q)}" data-input="query">
     </div>
@@ -685,13 +711,12 @@ function viewItem() {
   return `
   ${pcHeader('#/shohin')}
   <div class="sp-only">
-    <div class="sp-header">
-      <div class="row">
-        ${HOME_MARK}
-        <span class="back" data-nav="${esc(S.listHash)}">＜ 在庫一覧</span>
-        <span class="ttl" style="margin-left:auto;font-size:15px">品目詳細</span>
-      </div>
-    </div>
+    ${spHeader({
+      title: '品目詳細',
+      // 直前に見ていた区分の一覧に戻す（ラベルもその区分名にする）
+      back: S.listHash, backLabel: listBackLabel(),
+      titleStyle: 'margin-left:auto;font-size:15px',
+    })}
     <div>
       ${item.photo
         ? `<img class="sp-photo" src="${esc(item.photo)}" alt="現物写真（タップで拡大）" data-act="photo-view" data-id="${esc(item.id)}" style="cursor:zoom-in">`
@@ -858,13 +883,11 @@ function viewOrders() {
   return `
   ${pcHeader('#/orders')}
   <div class="sp-only">
-    <div class="sp-header">
-      <div class="row">
-        ${HOME_MARK}
-        <span class="ttl">発注アラート</span>
-        <span class="badge" style="background:${reorder.length ? 'var(--red)' : 'rgba(0,0,0,.28)'}">要発注 ${reorder.length} 件</span>
-      </div>
-    </div>
+    ${spHeader({
+      title: '発注アラート',
+      // 下部タブから直接来る画面なので、階層上の「戻る」先は持たない
+      badge: `<span class="badge" style="background:${reorder.length ? 'var(--red)' : 'rgba(0,0,0,.28)'}">要発注 ${reorder.length} 件</span>`,
+    })}
   </div>
   <div class="page">
     <div class="page-head pc-only">
@@ -965,9 +988,7 @@ function viewSettings() {
   return `
   ${pcHeader('#/settings')}
   <div class="sp-only">
-    <div class="sp-header"><div class="row">
-      ${HOME_MARK}<span class="ttl">設定</span>
-    </div></div>
+    ${spHeader({ title: '設定' })}
   </div>
   <div class="page" style="max-width:760px">
     <div class="page-head pc-only"><h2>設定</h2></div>

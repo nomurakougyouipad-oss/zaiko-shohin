@@ -18,9 +18,9 @@ import {
   collection, doc, setDoc, updateDoc,
   getDocs, onSnapshot, query, where,
   serverTimestamp, writeBatch, increment, Timestamp,
-} from './firebase.js?v=16';
-import { num } from './util.js?v=16';
-import { SITE_KEYS, totalQty } from './steel-util.js?v=16';
+} from './firebase.js?v=17';
+import { num } from './util.js?v=17';
+import { SITE_KEYS, totalQty } from './steel-util.js?v=17';
 
 const catalogCol = collection(db, 'steelCatalog');
 const stockCol = collection(db, 'steelStock');
@@ -156,6 +156,36 @@ export function summarizeImport(rows, existingIds) {
     if (Object.values(r.stock.qty).some((v) => v != null) || r.stock.explicitInInventory) stockRows++;
   }
   return { created, updated, stockRows, total: rows.length };
+}
+
+// ---------- 差分削除 ----------
+// CSVに無くなった品目をカタログから消す。
+// 品目の同一性は「種類＋材質＋サイズ＋スケジュール」＝ドキュメントIDなので、
+// CSV側でこの4項目を直すと別IDの新しい品目が増え、古いほうが取り残される。
+// それを掃除するための機能（在庫に出している品目は必ず残す）。
+export function planDiffDelete(catalogItems, csvKeys, stockById) {
+  const targets = [];
+  const keptInStock = [];
+  for (const c of catalogItems) {
+    if (csvKeys.has(c.id)) continue;      // CSVにある = 残す
+    if (stockById.has(c.id)) keptInStock.push(c); // 在庫に出している = 消さない
+    else targets.push(c);
+  }
+  return { targets, keptInStock };
+}
+
+export async function deleteCatalogByIds(ids, { onProgress } = {}) {
+  const PER_BATCH = 400; // 1バッチ500操作の制限に対する余裕分
+  let done = 0;
+  for (let i = 0; i < ids.length; i += PER_BATCH) {
+    const chunk = ids.slice(i, i + PER_BATCH);
+    const batch = writeBatch(db);
+    chunk.forEach((id) => batch.delete(doc(catalogCol, id)));
+    await batch.commit();
+    done += chunk.length;
+    if (onProgress) onProgress(done, ids.length);
+  }
+  return done;
 }
 
 // 実行。1バッチ500操作の制限に合わせて分割し、進捗をコールバックで返す。

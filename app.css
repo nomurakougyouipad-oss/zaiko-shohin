@@ -133,28 +133,47 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); 
 .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 8px; color: #fff; white-space: nowrap; }
 .tag-outline { color: var(--text); background: var(--surface); border: 1px solid var(--text); }
 
-/* ---------- PCヘッダー ---------- */
-.pc-header {
+/* ---------- PCヘッダー ----------
+   ナビの当たり判定を padding で作り、ヘッダーの高さはナビ自身が決める。
+   （以前は上下 14px の固定余白 + 13px の小さなリンクで、下側が間延びしていた） */
+/* セレクタを header.pc-header にしているのは、あとに出てくる
+   `.pc-only { display: block }` に display:flex を打ち消されないため
+   （同じ詳細度だと後勝ちで block になり、ナビとモード表示が縦積みになる）。 */
+header.pc-header {
   display: flex;
-  align-items: center;
-  gap: 24px;
+  align-items: stretch;
+  gap: 20px;
   background: var(--grad-header);
   color: #f1f3f1;
-  padding: 14px 24px;
+  padding: 0 20px;
+  min-height: 68px; /* 鋼材セクションのヘッダー(.st-header)と高さを揃える */
 }
-.pc-header .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
-.brand-mark { width: 34px; height: 34px; background: #fff; display: grid; place-items: center; flex: none; }
+.pc-header .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; padding: 8px 0; }
+.pc-header .brand-text { display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
+.brand-mark { width: 36px; height: 36px; background: #fff; display: grid; place-items: center; flex: none; }
 /* ロゴマークは玄関（スタート画面）に戻るボタンを兼ねる */
 .home-mark { cursor: pointer; }
 .home-mark:hover { outline: 2px solid #fff; outline-offset: 1px; }
 .brand-mark svg { width: 70%; height: 70%; fill: #17a35c; }
-.pc-header .brand-name { font-weight: 900; font-size: 19px; }
-.pc-header .brand-sub { font-size: 13px; color: #eafff2; font-weight: 700; }
-.pc-nav { display: flex; gap: 20px; font-size: 13px; font-weight: 500; }
-.pc-nav a { color: #f1f3f1; opacity: .8; padding-bottom: 2px; cursor: pointer; }
-.pc-nav a:hover { opacity: 1; color: #fff; text-decoration: none; }
-.pc-nav a.on { color: #fff; font-weight: 700; opacity: 1; border-bottom: 2px solid #fff; }
-.pc-header .who { font-size: 13px; opacity: .85; border-left: 2px solid #3a4038; padding-left: 20px; }
+/* 会社名を主・アプリ名を従にして、2段で高さをロゴに揃える */
+.pc-header .brand-name { font-weight: 900; font-size: 16px; }
+.pc-header .brand-sub { font-size: 11px; color: #cdf0dd; font-weight: 700; }
+
+.pc-nav { display: flex; align-items: stretch; gap: 2px; font-size: 15px; font-weight: 700; }
+.pc-nav a {
+  display: flex; align-items: center;
+  padding: 0 14px; border-bottom: 3px solid transparent;
+  color: #f1f3f1; opacity: .85; cursor: pointer; white-space: nowrap;
+}
+.pc-nav a:hover { opacity: 1; color: #fff; background: rgba(255, 255, 255, .12); text-decoration: none; }
+.pc-nav a.on { color: #fff; opacity: 1; background: rgba(255, 255, 255, .1); border-bottom-color: #fff; }
+
+/* モード表示は右端のチップに。以前はナビ横に素の文字で置いていて浮いて見えた */
+.pc-header .who {
+  align-self: center; flex: none;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: rgba(0, 0, 0, .25); padding: 6px 12px;
+}
 
 /* ---------- KPI ---------- */
 .kpi-grid {
@@ -363,6 +382,18 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
   white-space: nowrap; background: rgba(0,0,0,.28); padding: 2px 8px;
 }
 .sp-header .back { font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; flex: none; }
+/* 「戻る」と「ホーム（玄関）」は必ず見分けがつくように分けて置く。
+   ロゴ兼用にしていた頃は、一段戻すつもりで玄関まで飛ぶ誤操作が起きていた */
+.sp-header .home-btn {
+  width: 38px; height: 38px; flex: none; cursor: pointer;
+  display: grid; place-items: center;
+  border: 2px solid rgba(255, 255, 255, .5);
+}
+.sp-header .home-btn:hover { background: rgba(255, 255, 255, .16); border-color: #fff; }
+.sp-header .home-btn svg { width: 20px; height: 20px; }
+/* 「戻る」の直後にホームが来るときだけ間隔を空ける */
+.sp-header .back + .home-btn { margin-left: 4px; }
+.sp-header .home-btn + .ttl { margin-left: 8px; }
 
 .sp-search { padding: 12px 16px 8px; background: var(--bg); }
 /* 一覧ページの絞り込み（保管場所・在庫不足のみ）— 検索欄のすぐ下 */

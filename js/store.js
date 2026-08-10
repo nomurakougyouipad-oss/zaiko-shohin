@@ -15,9 +15,9 @@ import {
   getDocs, onSnapshot, query, where, orderBy,
   serverTimestamp, writeBatch, increment, Timestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
-} from './firebase.js?v=16';
-import { resizeImage } from './image.js?v=16';
-import { monthStart, num, CATEGORIES } from './util.js?v=16';
+} from './firebase.js?v=17';
+import { resizeImage } from './image.js?v=17';
+import { monthStart, num, CATEGORIES } from './util.js?v=17';
 
 const itemsCol = collection(db, 'items');
 const logsCol = collection(db, 'logs');
