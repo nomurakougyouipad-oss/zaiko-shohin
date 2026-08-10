@@ -95,6 +95,80 @@ service cloud.firestore {
       allow delete: if signedIn();
     }
 
+    // ========== 鋼材セクション ==========
+    // 消耗品側（items / logs / …）とは別コレクション。相互に影響しない。
+
+    function numOrNull(v) {
+      return v == null || v is number;
+    }
+
+    // 空欄のままCSV取込された項目は null で入る（規格・スケジュール・仕入先など）。
+    // strMax は string しか通さないため、任意項目にはこちらを使う。
+    function strMaxOrNull(v, max) {
+      return v == null || (v is string && v.size() <= max);
+    }
+
+    // 鋼材の品目カタログ（数千件。JIS規格の品目を幅広く収録した裏の辞書）
+    function validSteelCatalog(d) {
+      return d.category is string && d.category.size() > 0 && d.category.size() <= 50
+        && d.material is string && d.material.size() > 0 && d.material.size() <= 100
+        && strMaxOrNull(d.get('size', null), 100)
+        && strMaxOrNull(d.get('sch', null), 50)
+        && strMaxOrNull(d.get('name', null), 200)
+        && strMaxOrNull(d.get('jis', null), 100)
+        && strMaxOrNull(d.get('unit', null), 20)
+        && strMaxOrNull(d.get('supplier', null), 100)
+        && numOrNull(d.get('unitWeight', null))
+        && numOrNull(d.get('price', null))
+        && numOrNull(d.get('safety', null));
+    }
+
+    // 鋼材の在庫（実際に扱っている品目だけ。拠点ごとに数量を持つ）
+    function validSteelStock(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && d.category is string && d.category.size() > 0 && d.category.size() <= 50
+        && d.inInventory is bool
+        && d.get('hidden', false) is bool
+        && d.matsumae is number && d.matsumae >= 0
+        && d.iyo is number && d.iyo >= 0
+        && d.toho is number && d.toho >= 0
+        && d.get('safety', 0) is number && d.get('safety', 0) >= 0
+        && strMaxOrNull(d.get('location', null), 100)
+        && strMaxOrNull(d.get('unit', null), 20);
+    }
+
+    // 鋼材の入出庫履歴（誰が・いつ・何本・どの拠点）
+    function validSteelLog(d) {
+      return d.itemId is string && d.itemId.size() > 0 && d.itemId.size() <= 200
+        && d.at is timestamp
+        && d.kind in ['入庫', '出庫', '在庫登録', 'CSV取込', '棚卸調整']
+        && d.qty is number
+        && d.after is number
+        && strMax(d.get('site', ''), 40)
+        && strMax(d.get('person', ''), 60)
+        && strMax(d.get('memo', ''), 500);
+    }
+
+    match /steelCatalog/{itemId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validSteelCatalog(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    match /steelStock/{itemId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && validSteelStock(request.resource.data);
+      allow delete: if signedIn();
+    }
+
+    // 履歴は改ざん防止のため更新不可（作成のみ）
+    match /steelLogs/{logId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validSteelLog(request.resource.data);
+      allow update: if false;
+      allow delete: if signedIn();
+    }
+
     // 上記以外は全面的に拒否
     match /{document=**} {
       allow read, write: if false;

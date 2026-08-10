@@ -1,18 +1,18 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>消耗品在庫</title>
-<meta name="description" content="よつば建設工業 社内向け 消耗品在庫管理アプリ">
+<title>よつば在庫</title>
+<meta name="description" content="よつば建設工業 社内向け 在庫管理アプリ（鋼材・消耗品）">
 <meta name="theme-color" content="#177a49">
 <!-- iPhone「ホーム画面に追加」用: アイコン・表示名・全画面起動 -->
-<meta name="apple-mobile-web-app-title" content="消耗品在庫">
+<meta name="apple-mobile-web-app-title" content="よつば在庫">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icons/icon-9a-48.png" sizes="48x48" type="image/png">
-<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-9a-180.png">
+<link rel="icon" href="./icons/icon-v2-48.png" sizes="48x48" type="image/png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-v2-180.png">
 <style>
   /* 起動画面（スプラッシュ）のスタイルはインライン化してある。
      外部CSSの読み込みを待たずに1フレーム目から正しく表示するため
@@ -37,8 +37,10 @@
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap">
-<link rel="stylesheet" href="./app.css?v=14">
+<!-- 消耗品セクション: Noto Sans JP ／ 玄関・鋼材セクション: M PLUS Rounded 1c（1リクエストにまとめる） -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="./app.css?v=15">
+<link rel="stylesheet" href="./steel.css?v=15">
 </head>
 <body>
 <!-- 起動画面（スプラッシュ）: アプリアイコンのマーク（STK＋上下矢印）をSVGで再現。
@@ -74,7 +76,7 @@
 </div>
 <div id="modal-root"></div>
 <div id="toast-root"></div>
-<script type="module" src="./js/app.js?v=14"></script>
+<script type="module" src="./js/app.js?v=15"></script>
 <script>
   // PWA: Service Worker 登録（ローカルファイル直開きでは無効）
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

@@ -1,7 +1,9 @@
-﻿// ============================================================
-// 消耗品在庫管理アプリ — 画面描画・ルーティング・操作
+// ============================================================
+// よつば在庫 — 画面描画・ルーティング・操作（消耗品セクション＋全体のルーター）
 // 画面構成:
-//   #/            区分メニュー（KPI＋横断検索＋区分タイル）＝在庫一覧のトップ
+//   #/            玄関（鋼材／消耗品を選ぶスタート画面）→ home.js
+//   #/steel...    鋼材セクション → steel.js
+//   #/shohin      区分メニュー（KPI＋横断検索＋区分タイル）＝消耗品在庫一覧のトップ
 //   #/list        在庫一覧・全品目（PC: テーブル／スマホ: カード） + 棚卸モード
 //   #/list/{区分} 在庫一覧・区分で絞り込み
 //   #/item/{id}   品目詳細（PC/スマホ）
@@ -12,14 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=14';
-import * as store from './store.js?v=14';
+import { ready } from './firebase.js?v=15';
+import * as store from './store.js?v=15';
+import * as steel from './steel.js?v=15';
+import * as home from './home.js?v=15';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=14';
+} from './util.js?v=15';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -37,7 +41,7 @@ const S = {
   syncedAt: null,
   authError: false,
 
-  route: { view: 'menu' },
+  route: { view: 'home' },
   listHash: '#/list',   // 直前に見ていた一覧（品目詳細から戻る先）
 
   // 一覧（PC）※ cat は URL（区分メニューで選んだ区分）から設定される
@@ -94,8 +98,38 @@ setTimeout(hideSplash, 8000); // 保険: 何かに失敗しても起動画面で
 let authOk = false;
 let mastersSeeded = false;
 
+// 玄関・鋼材セクションに描画関数を渡す（render は関数宣言なのでここで参照できる）
+steel.init({ render });
+home.init({
+  render,
+  consumables: {
+    // 玄関タイル用: 消耗品の品目数と在庫不足件数
+    stats: () => {
+      const items = S.items;
+      if (items === null) return { total: 0, short: 0, loading: true };
+      return { total: items.length, short: items.filter((i) => statusOf(i).rank < 2).length, loading: false };
+    },
+    // 玄関の横断検索用: 消耗品を品名・型番などから探す
+    search: (q) => {
+      const s = q.trim();
+      if (!s) return [];
+      return (S.items || [])
+        .filter((it) => ((it.name || '') + (it.model || '') + (it.location || '') + (it.supplier || '')).includes(s))
+        .slice(0, 8)
+        .map((it) => ({
+          id: it.id,
+          name: it.name || '',
+          sub: '消耗品 ／ ' + [it.category, `在庫 ${num(it.stock)}${it.unit || ''}`].filter(Boolean).join(' ／ '),
+          isShort: statusOf(it).rank < 2,
+          hash: '#/item/' + encodeURIComponent(it.id),
+        }));
+    },
+  },
+});
+
 ready.then(() => {
   authOk = true;
+  steel.start(); // 鋼材の在庫購読（消耗品とは別コレクション）
   store.watchItems((items) => {
     S.items = items;
     S.syncedAt = new Date();
@@ -132,13 +166,21 @@ window.addEventListener('scroll', () => {
 
 function onRoute() {
   const h = location.hash || '#/';
-  let route = { view: 'menu' };
-  const mItem = h.match(/^#\/item\/(.+)$/);
-  const mList = h.match(/^#\/list(?:\/(.*))?$/);
-  if (mItem) route = { view: 'item', id: decodeURIComponent(mItem[1]) };
-  else if (mList) route = { view: 'list', cat: hashToCat(mList[1]) };
-  else if (h === '#/orders') route = { view: 'orders' };
-  else if (h === '#/settings') route = { view: 'settings' };
+
+  // 鋼材セクションのハッシュは steel.js が受け持つ（内部の絞り込み位置もそちらが解釈する）
+  let route;
+  if (steel.onRoute(h)) {
+    route = { view: 'steel' };
+  } else {
+    route = { view: 'home' };   // 未知のハッシュは玄関に落とす
+    const mItem = h.match(/^#\/item\/(.+)$/);
+    const mList = h.match(/^#\/list(?:\/(.*))?$/);
+    if (mItem) route = { view: 'item', id: decodeURIComponent(mItem[1]) };
+    else if (mList) route = { view: 'list', cat: hashToCat(mList[1]) };
+    else if (h === '#/orders') route = { view: 'orders' };
+    else if (h === '#/settings') route = { view: 'settings' };
+    else if (h === '#/shohin') route = { view: 'menu' };
+  }
   S.route = route;
 
   if (route.view === 'list') {
@@ -168,6 +210,10 @@ function onRoute() {
 
 const MARK_SVG = `<svg viewBox="0 0 100 100"><path d="M30 12 h14 v40 h14 L37 78 L16 52 h14 z"></path><path d="M70 88 h-14 v-40 h-14 L63 22 L84 48 h-14 z"></path></svg>`;
 
+// ロゴマーク＝玄関に戻るボタン（README 1章「各セクションのヘッダー左上にホームアイコン」）
+const HOME_MARK = `<span class="brand-mark home-mark" data-nav="#/" role="button" tabindex="0"
+  aria-label="玄関にもどる" title="玄関にもどる">${MARK_SVG}</span>`;
+
 function decorate(it) {
   const st = statusOf(it);
   return { ...it, ...st, priceLabel: YEN(it.price), valueLabel: YEN(num(it.price) * num(it.stock)) };
@@ -190,12 +236,13 @@ function pcHeader(active) {
   return `
   <header class="pc-header pc-only">
     <span class="brand">
-      <span class="brand-mark">${MARK_SVG}</span>
+      ${HOME_MARK}
       <span class="brand-name">よつば建設工業</span>
       <span class="brand-sub">消耗品在庫管理</span>
     </span>
     <nav class="pc-nav">
-      ${navLink('#/', '在庫一覧')}
+      ${navLink('#/', '玄関')}
+      ${navLink('#/shohin', '在庫一覧')}
       <a data-act="open-move">入出庫記録</a>
       ${navLink('#/orders', '発注アラート')}
       ${navLink('#/settings', '設定')}
@@ -212,7 +259,7 @@ function tabbar(active) {
   };
   return `
   <nav class="tabbar sp-only">
-    ${tab('list', '#/', '在庫')}
+    ${tab('list', '#/shohin', '在庫')}
     ${tab('move', null, '入出庫', 'open-move')}
     ${tab('orders', '#/orders', '発注')}
     ${tab('settings', '#/settings', '設定')}
@@ -342,11 +389,11 @@ function viewMenu() {
   ].join('');
 
   return `
-  ${pcHeader('#/')}
+  ${pcHeader('#/shohin')}
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
-        <span class="brand-mark">${MARK_SVG}</span>
+        ${HOME_MARK}
         <span class="ttl">在庫一覧</span>
         <span class="badge">在庫不足 ${shortage.length} 件</span>
       </div>
@@ -494,11 +541,12 @@ function viewList() {
     </div>`).join('');
 
   return `
-  ${pcHeader('#/')}
+  ${pcHeader('#/shohin')}
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
-        <span class="back" data-nav="#/">＜ 区分メニュー</span>
+        ${HOME_MARK}
+        <span class="back" data-nav="#/shohin">＜ 区分メニュー</span>
         <span class="ttl" style="margin-left:8px">${esc(title)}</span>
         <span class="badge">在庫不足 ${shortage.length} 件</span>
       </div>
@@ -635,10 +683,11 @@ function viewItem() {
     </div>`).join('');
 
   return `
-  ${pcHeader('#/')}
+  ${pcHeader('#/shohin')}
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
+        ${HOME_MARK}
         <span class="back" data-nav="${esc(S.listHash)}">＜ 在庫一覧</span>
         <span class="ttl" style="margin-left:auto;font-size:15px">品目詳細</span>
       </div>
@@ -811,7 +860,7 @@ function viewOrders() {
   <div class="sp-only">
     <div class="sp-header">
       <div class="row">
-        <span class="brand-mark">${MARK_SVG}</span>
+        ${HOME_MARK}
         <span class="ttl">発注アラート</span>
         <span class="badge" style="background:${reorder.length ? 'var(--red)' : 'rgba(0,0,0,.28)'}">要発注 ${reorder.length} 件</span>
       </div>
@@ -917,7 +966,7 @@ function viewSettings() {
   ${pcHeader('#/settings')}
   <div class="sp-only">
     <div class="sp-header"><div class="row">
-      <span class="brand-mark">${MARK_SVG}</span><span class="ttl">設定</span>
+      ${HOME_MARK}<span class="ttl">設定</span>
     </div></div>
   </div>
   <div class="page" style="max-width:760px">
@@ -1463,7 +1512,9 @@ async function handlePhoto(input) {
 
 function render() {
   document.body.classList.toggle('mode-field', mode() === 'field');
-  document.body.classList.add('has-tabbar');
+  // 下部タブバーは消耗品セクションだけ。玄関・鋼材では下の余白を付けない
+  const inShohin = S.route.view !== 'home' && S.route.view !== 'steel';
+  document.body.classList.toggle('has-tabbar', inShohin);
 
   // フォーカス保持（検索・棚卸入力などの再描画対策）
   const active = document.activeElement;
@@ -1472,7 +1523,10 @@ function render() {
   try { selStart = active && active.selectionStart; } catch (_) { /* 非対応要素 */ }
 
   let view;
-  if (S.items === null && !S.authError) {
+  // 玄関と鋼材は消耗品の読み込みを待たない（それぞれ自前の読み込み表示を持つ）
+  if (S.route.view === 'home') view = home.view();
+  else if (S.route.view === 'steel') view = steel.view();
+  else if (S.items === null && !S.authError) {
     view = `${pcHeader('')}<div class="page" style="text-align:center;padding-top:64px;opacity:.7">データを読み込んでいます…</div>`;
   } else if (S.route.view === 'item') view = viewItem();
   else if (S.route.view === 'orders') view = viewOrders();

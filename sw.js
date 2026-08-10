@@ -1,10 +1,10 @@
-﻿// ============================================================
+// ============================================================
 // Service Worker — アプリシェルのオフラインキャッシュ（PWA）
 // ・自サイトの静的ファイルのみキャッシュ
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v14';
+const VERSION = 'v15';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
@@ -13,17 +13,23 @@ const CACHE = 'zaiko-shohin-' + VERSION;
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=14',
+  './app.css?v=15',
+  './steel.css?v=15',
   './manifest.webmanifest',
-  './firebase-config.js?v=14',
-  './js/app.js?v=14',
-  './js/util.js?v=14',
-  './js/firebase.js?v=14',
-  './js/store.js?v=14',
-  './js/image.js?v=14',
-  './icons/icon-9a-48.png',
-  './icons/icon-9a-120.png',
-  './icons/icon-9a-180.png',
+  './firebase-config.js?v=15',
+  './js/app.js?v=15',
+  './js/util.js?v=15',
+  './js/firebase.js?v=15',
+  './js/store.js?v=15',
+  './js/image.js?v=15',
+  './js/home.js?v=15',
+  './js/steel.js?v=15',
+  './js/steel-util.js?v=15',
+  './js/steel-store.js?v=15',
+  './js/csv.js?v=15',
+  './icons/icon-v2-48.png',
+  './icons/icon-v2-120.png',
+  './icons/icon-v2-180.png',
 ];
 
 self.addEventListener('install', (e) => {

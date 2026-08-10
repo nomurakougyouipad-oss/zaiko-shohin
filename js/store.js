@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Firestore データ層 — 品目(items)・入出庫履歴(logs)・現場(sites)・担当者(persons)
 //
 // 設計メモ:
@@ -15,9 +15,9 @@ import {
   getDocs, onSnapshot, query, where, orderBy,
   serverTimestamp, writeBatch, increment, Timestamp,
   storageRef, uploadBytes, getDownloadURL, deleteObject,
-} from './firebase.js?v=14';
-import { resizeImage } from './image.js?v=14';
-import { monthStart, num, CATEGORIES } from './util.js?v=14';
+} from './firebase.js?v=15';
+import { resizeImage } from './image.js?v=15';
+import { monthStart, num, CATEGORIES } from './util.js?v=15';
 
 const itemsCol = collection(db, 'items');
 const logsCol = collection(db, 'logs');

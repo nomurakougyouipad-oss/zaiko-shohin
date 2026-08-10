@@ -144,6 +144,9 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); 
 }
 .pc-header .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; }
 .brand-mark { width: 34px; height: 34px; background: #fff; display: grid; place-items: center; flex: none; }
+/* ロゴマークは玄関（スタート画面）に戻るボタンを兼ねる */
+.home-mark { cursor: pointer; }
+.home-mark:hover { outline: 2px solid #fff; outline-offset: 1px; }
 .brand-mark svg { width: 70%; height: 70%; fill: #17a35c; }
 .pc-header .brand-name { font-weight: 900; font-size: 19px; }
 .pc-header .brand-sub { font-size: 13px; color: #eafff2; font-weight: 700; }

@@ -1,7 +1,7 @@
 {
-  "name": "消耗品在庫",
-  "short_name": "消耗品在庫",
-  "description": "よつば建設工業 社内向け 消耗品在庫管理アプリ",
+  "name": "よつば在庫",
+  "short_name": "よつば在庫",
+  "description": "よつば建設工業 社内向け 在庫管理アプリ（鋼材・消耗品）",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
@@ -9,8 +9,9 @@
   "background_color": "#ffffff",
   "theme_color": "#177a49",
   "icons": [
-    { "src": "./icons/icon-9a-120.png", "sizes": "120x120", "type": "image/png" },
-    { "src": "./icons/icon-9a-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "./icons/icon-9a-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+    { "src": "./icons/icon-v2-120.png", "sizes": "120x120", "type": "image/png" },
+    { "src": "./icons/icon-v2-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icons/icon-v2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-v2-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
   ]
 }
