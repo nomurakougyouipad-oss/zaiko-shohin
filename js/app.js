@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=20';
-import * as store from './store.js?v=20';
-import * as steel from './steel.js?v=20';
-import * as home from './home.js?v=20';
+import { ready } from './firebase.js?v=21';
+import * as store from './store.js?v=21';
+import * as steel from './steel.js?v=21';
+import * as home from './home.js?v=21';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=20';
+} from './util.js?v=21';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -197,14 +197,19 @@ const ICON_HOME_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 const HOME_BTN = `<span class="home-btn" data-nav="#/" role="button" tabindex="0"
   aria-label="玄関にもどる" title="玄関にもどる">${ICON_HOME_SVG}</span>`;
 
-// スマホの共通ヘッダー: [＜ 戻り先] [ホーム] タイトル [バッジ]
+const ICON_BACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>`;
+
+// スマホの共通ヘッダー: [ホーム] [＜ 戻り先] タイトル [バッジ]
 // 階層は 玄関 > 区分メニュー > 在庫一覧 > 品目詳細。back には一段上の画面を渡す。
-function spHeader({ title, back = null, backLabel = '', home = true, badge = '', titleStyle = '' }) {
+// ホームは必ず左端の同じ位置に置く。戻り先が無い画面では戻るボタンだけを消し、
+// ホームの位置は動かさない（画面ごとにボタンの位置が動くと押し間違えるため）。
+function spHeader({ title, back = null, backLabel = '', badge = '', titleStyle = '' }) {
   return `
   <div class="sp-header">
     <div class="row">
-      ${back ? `<span class="back" data-nav="${esc(back)}">＜ ${esc(backLabel)}</span>` : ''}
-      ${home ? HOME_BTN : ''}
+      ${HOME_BTN}
+      ${back ? `<button class="sp-back" data-nav="${esc(back)}" aria-label="${esc(backLabel)}にもどる">
+        ${ICON_BACK_SVG}<span>${esc(backLabel)}</span></button>` : ''}
       <span class="ttl"${titleStyle ? ` style="${titleStyle}"` : ''}>${esc(title)}</span>
       ${badge}
     </div>
@@ -394,8 +399,9 @@ function viewMenu() {
     ${spHeader({
       // セクションのトップなので、鋼材側の「鋼材在庫」に合わせてセクション名を出す
       title: '消耗品在庫',
-      // 一段上は玄関。ホームと同じ行き先になるのでアイコンは出さない
-      back: '#/', backLabel: '玄関', home: false,
+      // 一段上は玄関。ホームと行き先は同じだが、ボタンの位置を画面ごとに
+      // 動かさないため、ホームは左端に置いたまま戻るも出す
+      back: '#/', backLabel: '玄関',
       badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
     })}
   </div>
@@ -545,7 +551,9 @@ function viewList() {
   <div class="sp-only">
     ${spHeader({
       title,
-      back: '#/shohin', backLabel: '区分メニュー',
+      // ラベルは「区分」に留める。「区分メニュー」だと 375px 幅で見出しが
+      // 「溶…」まで潰れてしまうため
+      back: '#/shohin', backLabel: '区分',
       badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
     })}
     <div class="sp-search">
@@ -686,7 +694,7 @@ function viewItem() {
       title: '品目詳細',
       // 直前に見ていた区分の一覧に戻す（ラベルもその区分名にする）
       back: S.listHash, backLabel: listBackLabel(),
-      titleStyle: 'margin-left:auto;font-size:15px',
+      titleStyle: 'font-size:16px',
     })}
     <div>
       ${item.photo

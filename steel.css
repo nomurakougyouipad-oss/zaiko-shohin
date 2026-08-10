@@ -122,17 +122,19 @@
   padding: 12px 14px;
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
 }
+/* 見出しは [ホーム][もどる] の右に流し込む。
+   以前は画面中央に絶対配置していたが、左のボタンと重なるためやめた */
 .st-header .st-title {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  font-weight: 700; font-size: 19px; white-space: nowrap; pointer-events: none;
+  font-weight: 700; font-size: 19px; margin-left: 8px;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .st-header .st-right { margin-left: auto; display: flex; gap: 6px; z-index: 1; }
 .st-hbtn {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  min-height: 44px; padding: 0 12px; cursor: pointer;
+  min-height: 44px; padding: 0 12px; flex: none; cursor: pointer;
   background: transparent; border: 2px solid #fff; color: #fff;
   border-radius: var(--st-radius) !important;
-  font-family: inherit; font-size: 14px; font-weight: 700;
+  font-family: inherit; font-size: 15px; font-weight: 700;
 }
 .st-hbtn:hover { background: rgba(255, 255, 255, .16); }
 .st-hbtn.icon { width: 44px; padding: 0; border-color: transparent; }

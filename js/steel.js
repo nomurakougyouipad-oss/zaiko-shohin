@@ -14,14 +14,14 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=20';
+import * as sstore from './steel-store.js?v=21';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
-} from './steel-util.js?v=20';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=20';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=20';
+} from './steel-util.js?v=21';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=21';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=21';
 
 // ---------- 状態 ----------
 
@@ -189,11 +189,14 @@ const ICON_BACK = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const ICON_GEAR = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.8v2.4M12 18.8v2.4M4.5 4.5l1.7 1.7M17.8 17.8l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.5 19.5l1.7-1.7M17.8 6.2l1.7-1.7"></path></svg>`;
 const ICON_X = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"></path></svg>`;
 
+// [ホーム] [もどる] タイトル [設定]
+// ホームは必ず左端の同じ位置。戻り先が無い画面では「もどる」だけを消して
+// ホームの位置は動かさない（消耗品側の spHeader と同じ並び）。
 function header({ title, back = null, gear = false }) {
   return `
   <div class="st-header">
+    <button class="st-hbtn icon" data-sact="home" aria-label="玄関にもどる">${ICON_HOME}</button>
     ${back ? `<button class="st-hbtn" data-sact="${back}" aria-label="もどる">${ICON_BACK}<span>もどる</span></button>` : ''}
-    <button class="st-hbtn icon" data-sact="home" aria-label="ホーム">${ICON_HOME}</button>
     <div class="st-title">${esc(title)}</div>
     ${gear ? `<div class="st-right"><button class="st-hbtn icon" data-sact="goto-settings" aria-label="鋼材の設定">${ICON_GEAR}</button></div>` : ''}
   </div>`;
