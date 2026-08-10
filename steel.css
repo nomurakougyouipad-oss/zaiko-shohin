@@ -55,6 +55,8 @@
 .home-spacer { flex: 1; min-height: 16px; }
 .home-brand { text-align: center; }
 .home-logo {
+  /* 文字幅ぴったりの箱にする。下線の幅をここから決めるため inline-block にしている */
+  display: inline-block;
   font-weight: 800; line-height: 1;
   /* 画面幅に合わせて拡大。小さい端末でもはみ出さないよう clamp で上下限を付ける */
   font-size: clamp(76px, 26vw, 120px);
@@ -64,6 +66,18 @@
   margin-right: -0.16em;
   background: linear-gradient(135deg, var(--st-accent-600), #2aa568);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+/* ロゴ下のアンダーライン。
+   箱の幅は「文字幅 + 末尾の字間(0.16em)」なので、その分を引くと
+   実際の文字の左端から右端までとぴったり同じ幅になる。
+   親の background-clip:text は継承されないので、ここの背景はそのまま塗られる。 */
+.home-logo::after {
+  content: "";
+  display: block;
+  width: calc(100% - 0.16em);
+  height: 4px;
+  margin-top: 12px;
+  background: linear-gradient(90deg, var(--st-accent-600), #2aa568);
 }
 
 .home-tiles { display: flex; flex-direction: column; gap: 14px; }
