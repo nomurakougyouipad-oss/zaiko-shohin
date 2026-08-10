@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=21';
-import * as store from './store.js?v=21';
-import * as steel from './steel.js?v=21';
-import * as home from './home.js?v=21';
+import { ready } from './firebase.js?v=22';
+import * as store from './store.js?v=22';
+import * as steel from './steel.js?v=22';
+import * as home from './home.js?v=22';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=21';
+} from './util.js?v=22';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -399,9 +399,8 @@ function viewMenu() {
     ${spHeader({
       // セクションのトップなので、鋼材側の「鋼材在庫」に合わせてセクション名を出す
       title: '消耗品在庫',
-      // 一段上は玄関。ホームと行き先は同じだが、ボタンの位置を画面ごとに
-      // 動かさないため、ホームは左端に置いたまま戻るも出す
-      back: '#/', backLabel: '玄関',
+      // 一段上は玄関＝ホームと同じ行き先なので、戻るボタンは出さない
+      // （ホームアイコンだけ。ボタンが2つ並んで同じ場所に飛ぶのを避ける）
       badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
     })}
   </div>
@@ -459,7 +458,8 @@ function viewList() {
   const items = S.items || [];
   const inCat = S.cat === 'すべて' ? items : items.filter((i) => (i.category || '') === S.cat);
   const shortage = inCat.filter((i) => statusOf(i).rank < 2);
-  const title = S.cat === 'すべて' ? 'すべての品目' : catLabel(S.cat);
+  // 「すべての品目」だとスマホの見出し枠に収まらず末尾が省略されるため短くする
+  const title = S.cat === 'すべて' ? 'すべて' : catLabel(S.cat);
 
   const visible = filteredItems();
   const total = visible.length;

@@ -10,7 +10,7 @@
 // ・拠点は SITES に定義。増えても在庫ドキュメントにキーが増えるだけで済む。
 // ============================================================
 
-import { num } from './util.js?v=21';
+import { num } from './util.js?v=22';
 
 // ---------- 拠点 ----------
 
@@ -29,21 +29,33 @@ export function siteLabel(key) {
 
 // ---------- 種類と段構成 ----------
 // levels: 種類を選んだ後に出すチップの段。並べた順に絞り込み、最後まで選ぶと品目一覧になる。
-//   配管   … 材質 → 呼び径 → 品目一覧（Sch違いが並ぶ）
-//   樹脂・銅管 … 材質 → サイズ → 品目一覧（塩ビ管・TS継手・銅管継手）
-//   アングル・形鋼 … 材質 → 品目一覧（サイズ違いが並ぶ）
-//   フランジ … 材質 → 呼び圧力 → 呼び径 → 品目一覧
+// 全20種類とも 種類 → 材質 → サイズ → 品目一覧 の3段。
+//
+// ※ key はそのままドキュメントIDの一部になり、CSVの「種類」列と
+//   1文字でも違うと別の品目として扱われる。カッコは半角、中黒は「・」。
+//   ここを直すときは必ずCSV側と揃えること。
 
 export const STEEL_CATEGORIES = [
   { key: '配管', label: '配管', levels: ['material', 'size'] },
-  { key: '樹脂・銅管', label: '樹脂・銅管', levels: ['material', 'size'] },
-  { key: 'フランジ', label: 'フランジ', levels: ['material', 'pressure', 'size'] },
-  { key: 'アングル', label: 'アングル', levels: ['material'] },
+  { key: '角パイプ', label: '角パイプ', levels: ['material', 'size'] },
+  { key: '丸パイプ', label: '丸パイプ', levels: ['material', 'size'] },
+  { key: 'アングル', label: 'アングル', levels: ['material', 'size'] },
+  { key: '平鋼(フラットバー)', label: '平鋼(フラットバー)', levels: ['material', 'size'] },
+  { key: '溝形鋼(チャンネル)', label: '溝形鋼(チャンネル)', levels: ['material', 'size'] },
+  { key: 'Cチャンネル(軽量)', label: 'Cチャンネル(軽量)', levels: ['material', 'size'] },
+  { key: 'H形鋼', label: 'H形鋼', levels: ['material', 'size'] },
+  { key: '丸鋼・棒鋼', label: '丸鋼・棒鋼', levels: ['material', 'size'] },
+  { key: '鋼板', label: '鋼板', levels: ['material', 'size'] },
+  { key: '縞鋼板', label: '縞鋼板', levels: ['material', 'size'] },
+  { key: 'エキスパンドメタル', label: 'エキスパンドメタル', levels: ['material', 'size'] },
+  { key: 'グレーチング', label: 'グレーチング', levels: ['material', 'size'] },
+  { key: 'パンチングメタル', label: 'パンチングメタル', levels: ['material', 'size'] },
+  { key: 'フランジ', label: 'フランジ', levels: ['material', 'size'] },
   { key: '溶接継手', label: '溶接継手', levels: ['material', 'size'] },
   { key: 'ねじ込み継手', label: 'ねじ込み継手', levels: ['material', 'size'] },
-  { key: '形鋼', label: '鋼材(平鋼等)', levels: ['material'] },
-  { key: 'パッキン', label: 'パッキン', levels: ['material'] },
-  { key: 'ボルト', label: 'ボルト', levels: ['material'] },
+  { key: 'パッキン', label: 'パッキン', levels: ['material', 'size'] },
+  { key: 'ボルト', label: 'ボルト', levels: ['material', 'size'] },
+  { key: '樹脂・銅管', label: '樹脂・銅管', levels: ['material', 'size'] },
 ];
 
 export const CATEGORY_KEYS = STEEL_CATEGORIES.map((c) => c.key);
@@ -89,9 +101,13 @@ export function genName(r) {
   // 樹脂・銅管は配管と同じ並び（VP 20 / TS継手 20 / 銅管 20 など）。
   // 種類名を挟むと「VP 樹脂・銅管 20」になって読みにくいため分けている
   if (r.category === '樹脂・銅管') return [material, size, sch].filter(Boolean).join(' ');
+  // アングル・平鋼は材質と種類をくっつけるのが現場の呼び方（SS400アングル 40×40×3）
   if (r.category === 'アングル') return `${material}アングル ${size}`.trim();
-  if (r.category === '形鋼') return `${material}平鋼 ${size}`.trim();
-  return [material, r.category, size].filter(Boolean).join(' ');
+  if (String(r.category).startsWith('平鋼')) return `${material}平鋼 ${size}`.trim();
+  // 残りは 材質 + 種類 + サイズ（SS400 角パイプ 50×50×2.3 など）。
+  // カッコ付きの種類名はカッコ内を落として品名を短くする
+  const cat = String(r.category || '').replace(/\(.*?\)/g, '').trim();
+  return [material, cat, size].filter(Boolean).join(' ');
 }
 
 export function genDims(r) {

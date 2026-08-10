@@ -181,15 +181,18 @@
 }
 .st-seg-opt.on { background: var(--st-grad); border-color: var(--st-accent-800); color: #fff; }
 
-/* チップ（段階絞り込み） */
-.st-chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 14px; }
+/* チップ（段階絞り込み）
+   種類は20個あるので、2列のまま字と高さを少し詰めて一覧しやすくしている。
+   「エキスパンドメタル」のような長い種類名は2行に折り返す。 */
+.st-chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding-bottom: 14px; }
 .st-chip {
-  width: 100%; min-height: 64px; box-sizing: border-box;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  padding: 14px 12px; cursor: pointer;
+  width: 100%; min-height: 60px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 10px 8px; cursor: pointer;
   background: var(--st-bg); border: 2px solid var(--st-n900); color: var(--st-text);
   border-radius: var(--st-radius) !important;
-  font-family: inherit; font-size: 15px; font-weight: 700;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  line-height: 1.25; text-align: center; word-break: break-word;
 }
 .st-chip:hover { background: var(--st-n200); }
 .st-chip.on { background: var(--st-text); color: var(--st-bg); border-color: var(--st-text); }
@@ -342,15 +345,20 @@
    ============================================================ */
 
 .st-pc { display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: start; }
+/* 種類が20個あって縦に長いので、ツリーだけ独立してスクロールさせる。
+   本文を下までスクロールしても種類の一覧が横に残る。 */
 .st-tree {
   background: var(--st-bg); border-right: 2px solid var(--st-text);
-  min-height: calc(100vh - 68px); padding: 20px 12px; box-sizing: border-box;
+  position: sticky; top: 0;
+  max-height: 100vh; overflow-y: auto;
+  min-height: calc(100vh - 68px); padding: 16px 12px; box-sizing: border-box;
 }
 .st-tree-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px 14px; }
 .st-tree-head .t-label { font-weight: 700; font-size: 13px; color: var(--st-n700); }
+/* 種類が20個並ぶので、1行の高さを詰めて画面内に収まるようにしている */
 .st-tree-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; text-align: left; padding: 11px 14px; cursor: pointer; font-size: 16px;
+  width: 100%; text-align: left; padding: 8px 12px; cursor: pointer; font-size: 15px;
   background: transparent; border: none; color: var(--st-text);
   border-radius: 10px !important; font-family: inherit;
 }
