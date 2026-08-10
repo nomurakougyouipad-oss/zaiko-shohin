@@ -141,27 +141,29 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); 
    （同じ詳細度だと後勝ちで block になり、ナビとモード表示が縦積みになる）。 */
 header.pc-header {
   display: flex;
-  align-items: stretch;
-  gap: 20px;
+  align-items: center;
+  gap: 6px;
   background: var(--grad-header);
   color: #f1f3f1;
-  padding: 0 20px;
-  min-height: 68px; /* 鋼材セクションのヘッダー(.st-header)と高さを揃える */
+  padding: 12px 14px;
+  min-height: 68px;
 }
-.pc-header .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; padding: 8px 0; }
-.pc-header .brand-text { display: flex; flex-direction: column; justify-content: center; line-height: 1.2; }
-.brand-mark { width: 36px; height: 36px; background: #fff; display: grid; place-items: center; flex: none; }
-/* ロゴマークは玄関（スタート画面）に戻るボタンを兼ねる */
-.home-mark { cursor: pointer; }
-.home-mark:hover { outline: 2px solid #fff; outline-offset: 1px; }
-.brand-mark svg { width: 70%; height: 70%; fill: #17a35c; }
-/* 会社名を主・アプリ名を従にして、2段で高さをロゴに揃える */
-.pc-header .brand-name { font-weight: 900; font-size: 16px; }
-.pc-header .brand-sub { font-size: 11px; color: #cdf0dd; font-weight: 700; }
 
-.pc-nav { display: flex; align-items: stretch; gap: 2px; font-size: 15px; font-weight: 700; }
+/* ---------- ヘッダーのホームボタンとセクション名 ----------
+   鋼材セクションの .st-hbtn.icon / PCヘッダーの見出しと同じ寸法。色だけ緑。
+   PC・スマホ共通で使う。 */
+.home-btn {
+  width: 44px; height: 44px; flex: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 2px solid transparent; color: #fff;
+}
+.home-btn:hover { background: rgba(255, 255, 255, .16); border-color: #fff; }
+.home-btn svg { display: block; width: 24px; height: 24px; }
+.hdr-title { font-weight: 800; font-size: 20px; margin-left: 8px; color: #fff; white-space: nowrap; }
+
+.pc-nav { display: flex; align-items: stretch; gap: 2px; margin-left: auto; font-size: 15px; font-weight: 700; }
 .pc-nav a {
-  display: flex; align-items: center;
+  display: flex; align-items: center; min-height: 44px;
   padding: 0 14px; border-bottom: 3px solid transparent;
   color: #f1f3f1; opacity: .85; cursor: pointer; white-space: nowrap;
 }
@@ -364,35 +366,27 @@ tr.diff-row { background: rgba(199,122,11,.14) !important; }
 }
 
 /* ---------- スマホレイアウト ---------- */
+/* 鋼材セクションの .st-header と同じ余白・同じ並び（色だけ緑） */
 .sp-header {
-  background: var(--grad-header-sp); color: #f1f3f1; padding: 12px 16px;
+  background: var(--grad-header-sp); color: #f1f3f1; padding: 12px 14px;
   /* ホーム画面起動(PWA)時、iOSステータスバー(時計・電波)の下に食い込まないよう
      セーフエリア分を上に足す。帯はヘッダーの緑グラデーションで塗られる */
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
 }
-.sp-header .row { display: flex; align-items: center; gap: 8px; }
-.sp-header .brand-mark { width: 24px; height: 24px; }
+.sp-header .row { display: flex; align-items: center; gap: 6px; }
 /* 区分名が長くても「戻る」とバッジを押し出さないよう、はみ出しは「…」で省略 */
 .sp-header .ttl {
-  font-weight: 900; font-size: 17px;
+  font-weight: 700; font-size: 19px;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .sp-header .badge {
   font-size: 12px; color: #fff; font-weight: 700; margin-left: auto; flex: none;
   white-space: nowrap; background: rgba(0,0,0,.28); padding: 2px 8px;
 }
-.sp-header .back { font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; flex: none; }
 /* 「戻る」と「ホーム（玄関）」は必ず見分けがつくように分けて置く。
-   ロゴ兼用にしていた頃は、一段戻すつもりで玄関まで飛ぶ誤操作が起きていた */
-.sp-header .home-btn {
-  width: 38px; height: 38px; flex: none; cursor: pointer;
-  display: grid; place-items: center;
-  border: 2px solid rgba(255, 255, 255, .5);
-}
-.sp-header .home-btn:hover { background: rgba(255, 255, 255, .16); border-color: #fff; }
-.sp-header .home-btn svg { width: 20px; height: 20px; }
-/* 「戻る」の直後にホームが来るときだけ間隔を空ける */
-.sp-header .back + .home-btn { margin-left: 4px; }
+   ロゴ兼用にしていた頃は、一段戻すつもりで玄関まで飛ぶ誤操作が起きていた。
+   ホームボタン本体のスタイルは PC と共通（.home-btn）。 */
+.sp-header .back { font-size: 13px; color: #fff; font-weight: 700; cursor: pointer; flex: none; }
 .sp-header .home-btn + .ttl { margin-left: 8px; }
 
 .sp-search { padding: 12px 16px 8px; background: var(--bg); }

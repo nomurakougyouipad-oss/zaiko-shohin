@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=17';
-import * as store from './store.js?v=17';
-import * as steel from './steel.js?v=17';
-import * as home from './home.js?v=17';
+import { ready } from './firebase.js?v=18';
+import * as store from './store.js?v=18';
+import * as steel from './steel.js?v=18';
+import * as home from './home.js?v=18';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=17';
+} from './util.js?v=18';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');
@@ -208,14 +208,9 @@ function onRoute() {
 
 // ---------- 共通部品 ----------
 
-const MARK_SVG = `<svg viewBox="0 0 100 100"><path d="M30 12 h14 v40 h14 L37 78 L16 52 h14 z"></path><path d="M70 88 h-14 v-40 h-14 L63 22 L84 48 h-14 z"></path></svg>`;
-
-// ロゴマーク＝玄関に戻るボタン（README 1章「各セクションのヘッダー左上にホームアイコン」）
-const HOME_MARK = `<span class="brand-mark home-mark" data-nav="#/" role="button" tabindex="0"
-  aria-label="玄関にもどる" title="玄関にもどる">${MARK_SVG}</span>`;
-
-// スマホヘッダーの「ホーム（玄関）」ボタン。
-// 以前はロゴマークを兼用していたが、隣の「戻る」と見分けがつかず
+// ヘッダーの「ホーム（玄関）」ボタン。PC・スマホ共通で、鋼材セクションの
+// .st-hbtn.icon と同じ 44×44。
+// 以前はSTKロゴマークを兼用していたが、隣の「戻る」と見分けがつかず
 // 一段だけ戻ったつもりで玄関まで飛んでしまうため、家アイコンの独立ボタンに分けた。
 const ICON_HOME_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>`;
 const HOME_BTN = `<span class="home-btn" data-nav="#/" role="button" tabindex="0"
@@ -263,15 +258,9 @@ function pcHeader(active) {
     `<a data-nav="${href}" class="${active === href ? 'on' : ''}">${label}</a>`;
   return `
   <header class="pc-header pc-only">
-    <span class="brand">
-      ${HOME_MARK}
-      <span class="brand-text">
-        <span class="brand-name">よつば建設工業</span>
-        <span class="brand-sub">消耗品在庫管理</span>
-      </span>
-    </span>
+    ${HOME_BTN}
+    <span class="hdr-title">消耗品在庫</span>
     <nav class="pc-nav">
-      ${navLink('#/', '玄関')}
       ${navLink('#/shohin', '在庫一覧')}
       <a data-act="open-move">入出庫記録</a>
       ${navLink('#/orders', '発注アラート')}
@@ -422,8 +411,9 @@ function viewMenu() {
   ${pcHeader('#/shohin')}
   <div class="sp-only">
     ${spHeader({
-      title: '在庫一覧',
-      // 区分メニューの一段上は玄関。ホームと同じ行き先になるのでアイコンは出さない
+      // セクションのトップなので、鋼材側の「鋼材在庫」に合わせてセクション名を出す
+      title: '消耗品在庫',
+      // 一段上は玄関。ホームと同じ行き先になるのでアイコンは出さない
       back: '#/', backLabel: '玄関', home: false,
       badge: `<span class="badge">在庫不足 ${shortage.length} 件</span>`,
     })}
