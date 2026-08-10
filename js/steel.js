@@ -14,14 +14,14 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=15';
+import * as sstore from './steel-store.js?v=16';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
-} from './steel-util.js?v=15';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=15';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=15';
+} from './steel-util.js?v=16';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=16';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=16';
 
 // ---------- 状態 ----------
 

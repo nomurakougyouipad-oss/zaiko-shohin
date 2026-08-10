@@ -10,7 +10,7 @@
 // ・拠点は SITES に定義。増えても在庫ドキュメントにキーが増えるだけで済む。
 // ============================================================
 
-import { num } from './util.js?v=15';
+import { num } from './util.js?v=16';
 
 // ---------- 拠点 ----------
 
@@ -30,11 +30,13 @@ export function siteLabel(key) {
 // ---------- 種類と段構成 ----------
 // levels: 種類を選んだ後に出すチップの段。並べた順に絞り込み、最後まで選ぶと品目一覧になる。
 //   配管   … 材質 → 呼び径 → 品目一覧（Sch違いが並ぶ）
+//   樹脂・銅管 … 材質 → サイズ → 品目一覧（塩ビ管・TS継手・銅管継手）
 //   アングル・形鋼 … 材質 → 品目一覧（サイズ違いが並ぶ）
 //   フランジ … 材質 → 呼び圧力 → 呼び径 → 品目一覧
 
 export const STEEL_CATEGORIES = [
   { key: '配管', label: '配管', levels: ['material', 'size'] },
+  { key: '樹脂・銅管', label: '樹脂・銅管', levels: ['material', 'size'] },
   { key: 'フランジ', label: 'フランジ', levels: ['material', 'pressure', 'size'] },
   { key: 'アングル', label: 'アングル', levels: ['material'] },
   { key: '溶接継手', label: '溶接継手', levels: ['material', 'size'] },
@@ -84,6 +86,9 @@ export function genName(r) {
     const m = material === 'SUS304' ? 'SUS304TP' : material;
     return [m, size, sch].filter(Boolean).join(' ');
   }
+  // 樹脂・銅管は配管と同じ並び（VP 20 / TS継手 20 / 銅管 20 など）。
+  // 種類名を挟むと「VP 樹脂・銅管 20」になって読みにくいため分けている
+  if (r.category === '樹脂・銅管') return [material, size, sch].filter(Boolean).join(' ');
   if (r.category === 'アングル') return `${material}アングル ${size}`.trim();
   if (r.category === '形鋼') return `${material}平鋼 ${size}`.trim();
   return [material, r.category, size].filter(Boolean).join(' ');
