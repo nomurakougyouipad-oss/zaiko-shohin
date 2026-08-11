@@ -14,14 +14,15 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=22';
+import * as sstore from './steel-store.js?v=23';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
-} from './steel-util.js?v=22';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=22';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=22';
+  searchHaystack, searchTerms, matchesTerms, dimensionTerm,
+} from './steel-util.js?v=23';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=23';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=23';
 
 // ---------- 状態 ----------
 
@@ -33,6 +34,7 @@ const T = {
   mode: 'inventory',      // 'inventory'（在庫）| 'catalog'（品目追加）
   site: 'matsumae',       // 表示中の拠点（'total' で合計）
   path: [],               // 絞り込みの選択（[種類, 段1, 段2...]）
+  q: '',                  // 検索語。絞り込みの現在地の中だけを対象にする
 
   route: { view: 'browse' },
   detailId: null,
@@ -59,7 +61,7 @@ export function init({ render }) {
 export function start() {
   if (started) return;
   started = true;
-  sstore.watchStock((rows) => { T.stock = rows; _render(); },
+  sstore.watchStock((rows) => { T.stock = withHay(rows); _render(); },
     (e) => { console.error('鋼材在庫の購読エラー:', e); T.stock = []; _render(); });
 }
 
@@ -109,6 +111,7 @@ export function enter() {
   T.mode = 'inventory';
   T.path = [];
   T.site = 'matsumae';
+  T.q = '';
   location.hash = '#/steel';
 }
 
@@ -124,11 +127,18 @@ function ensureCatalog() {
   T.catalogState = 'loading';
   _render();
   sstore.loadCatalog()
-    .then((rows) => { T.catalog = rows; T.catalogState = 'ready'; _render(); })
+    .then((rows) => { T.catalog = withHay(rows); T.catalogState = 'ready'; _render(); })
     .catch((e) => {
       console.error('カタログの読み込みに失敗:', e);
       T.catalog = []; T.catalogState = 'error'; _render();
     });
+}
+
+// 検索用の文字列を1度だけ作って持たせる。
+// カタログは数千件あり、1文字打つたびに全件を正規化し直すと重くなるため。
+function withHay(rows) {
+  for (const r of rows) r._hay = searchHaystack(r);
+  return rows;
 }
 
 // ---------- データの組み立て ----------
@@ -175,6 +185,33 @@ function scopedRecords() {
   });
 }
 
+// 絞り込みの現在地 ＋ 検索語。検索は絞り込みを解除せず、その中だけを対象にする。
+function searchedRecords() {
+  const terms = searchTerms(T.q);
+  const scoped = scopedRecords();
+  if (!terms.length) return { list: scoped, searching: false };
+  const hay = (r) => r._hay || searchHaystack(r);
+
+  // 数字だけを並べた入力は寸法とみなして 3x25 の形で探す。
+  // 見つからなければ通常のAND検索に落とす（「10 20」で 10×20 が無い場合など）
+  const dim = dimensionTerm(terms);
+  if (dim) {
+    const byDim = scoped.filter((r) => hay(r).indexOf(dim) !== -1);
+    if (byDim.length) return { list: byDim, searching: true };
+  }
+  return { list: scoped.filter((r) => matchesTerms(hay(r), terms)), searching: true };
+}
+
+// 一度でも在庫に出した品目（在庫0・非表示でも実績あり）を上位に出す。
+// それ以外は従来どおりサイズの数値順。
+function usedFirst(list) {
+  const used = stockMap();
+  return list.slice().sort((a, b) => {
+    const ua = used.has(a.id) ? 0 : 1, ub = used.has(b.id) ? 0 : 1;
+    return ua - ub || compareItems(a, b);
+  });
+}
+
 const shortCountOf = (list) => (T.mode === 'inventory' ? list.filter(isShort).length : 0);
 
 function displayQty(r) {
@@ -213,13 +250,17 @@ function viewBrowse() {
   const levels = cat ? levelsOf(cat) : [];
   const chosen = T.path.slice(1);
   const scoped = scopedRecords();
+  const { list: hits, searching } = searchedRecords();
   const loading = T.mode === 'inventory' ? T.stock === null : T.catalogState === 'loading';
 
   // ---- チップ（種類 or 段） ----
   let chips = '';
   let showList = false;
 
-  if (!cat) {
+  if (searching) {
+    // 検索中は段を飛ばして結果を直接出す（絞り込みの現在地はそのまま）
+    showList = true;
+  } else if (!cat) {
     const all = records();
     chips = STEEL_CATEGORIES.map((m) => {
       const subset = all.filter((r) => (r.category || '') === m.key);
@@ -241,12 +282,17 @@ function viewBrowse() {
   }
 
   // ---- 品目一覧 ----
+  // 使用実績のある品目を上位に。件数が多いときは描画を打ち切る（件数は全件で出す）
   let list = '';
   if (showList) {
-    const items = scoped.slice().sort(compareItems);
+    const items = usedFirst(hits);
+    const shown = items.slice(0, LIST_LIMIT);
     list = items.length
-      ? `<div class="st-list">${items.map(rowHtml).join('')}</div>`
-      : `<div class="st-empty">該当する品目がありません。</div>`;
+      ? `<div class="st-list">${shown.map(rowHtml).join('')}</div>${
+          items.length > LIST_LIMIT
+            ? `<div class="st-note" style="padding:12px 4px">上位 ${LIST_LIMIT} 件を表示しています（該当 ${items.length} 件）。検索語を足すと絞り込めます。</div>`
+            : ''}`
+      : `<div class="st-empty">${searching ? `「${esc(T.q.trim())}」に一致する品目がありません。` : '該当する品目がありません。'}</div>`;
   }
 
   // ---- パンくず ----
@@ -278,12 +324,30 @@ function viewBrowse() {
 
       ${T.mode === 'inventory' ? siteSegHtml() : ''}
 
+      ${searchBoxHtml('st-q-sp', searching ? hits.length : null)}
+
       <div class="st-crumbs">${crumbs.join('')}</div>
 
       ${loading
         ? `<div class="st-empty">読み込んでいます…</div>`
         : emptyState || `<div class="st-panel">${chips ? `<div class="st-chips">${chips}</div>` : ''}${list}</div>`}
     </div>
+  </div>`;
+}
+
+// 一度に描く行数の上限。4,000件を一気にDOM化すると入力が固まるため
+const LIST_LIMIT = 200;
+
+// 検索欄。id は スマホ版・PC版で分ける（同じ画面が2回描かれるため）
+function searchBoxHtml(id, hitCount) {
+  const scopeLabel = T.path.length ? `${catLabelOf(T.path[0])}の中` : (T.mode === 'inventory' ? '在庫' : 'カタログ全体');
+  return `
+  <div class="st-search">
+    <input id="${id}" class="st-input" type="search" value="${esc(T.q)}"
+      placeholder="品名・材質・サイズで検索（${esc(scopeLabel)}）"
+      data-sinput="q" autocomplete="off" autocorrect="off" spellcheck="false">
+    ${T.q.trim() ? `<button class="st-btn" data-sact="clear-q" aria-label="検索をやめる">×</button>` : ''}
+    ${hitCount != null ? `<span class="st-hits">${hitCount}件</span>` : ''}
   </div>`;
 }
 
@@ -670,7 +734,8 @@ function diffModalHtml() {
 
 function viewPc() {
   const all = records();
-  const scoped = scopedRecords().slice().sort(compareItems);
+  const { list: hits, searching } = searchedRecords();
+  const scoped = usedFirst(hits);
   const cat = T.path[0];
 
   // ツリー（種類 → 段1 → 段2）を段構成の定義から組み立てる
@@ -709,7 +774,7 @@ function viewPc() {
       : `<button class="st-crumb" data-sact="crumb" data-n="${i + 1}">${esc(label)}</button>`);
   });
 
-  const rows = scoped.map((r) => `
+  const rows = scoped.slice(0, LIST_LIMIT).map((r) => `
     <tr data-sact="open-item" data-id="${esc(r.id)}">
       <td style="font-weight:700">${esc(r.name || r.id)}</td>
       <td style="color:var(--st-n700);font-size:13px">${esc(r.jis || '')}</td>
@@ -741,6 +806,7 @@ function viewPc() {
         ${tree}
       </div>
       <div class="st-main">
+        ${searchBoxHtml('st-q-pc', searching ? scoped.length : null)}
         <div class="st-main-head">
           <div class="st-crumbs" style="padding:0">${crumbs.join('')}</div>
           <div class="st-counts">
@@ -758,7 +824,10 @@ function viewPc() {
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
-          ${scoped.length ? '' : `<div class="st-empty">該当する品目がありません。</div>`}
+          ${scoped.length > LIST_LIMIT
+            ? `<div class="st-note" style="padding:12px 16px">上位 ${LIST_LIMIT} 件を表示しています（該当 ${scoped.length} 件）。検索語を足すと絞り込めます。</div>`
+            : ''}
+          ${scoped.length ? '' : `<div class="st-empty">${searching ? `「${esc(T.q.trim())}」に一致する品目がありません。` : '該当する品目がありません。'}</div>`}
         </div>`}
       </div>
     </div>
@@ -848,10 +917,13 @@ function bindEvents() {
 
       case 'toggle-mode':
         T.mode = T.mode === 'inventory' ? 'catalog' : 'inventory';
+        T.q = '';
         if (T.mode === 'catalog') ensureCatalog();
         goPath([]);
         _render();
         break;
+
+      case 'clear-q': T.q = ''; _render(); break;
 
       case 'set-site': T.site = el.dataset.site; _render(); break;
       case 'detail-site': T.detailSite = el.dataset.site; _render(); break;
@@ -931,6 +1003,14 @@ function bindEvents() {
       case 'close-del': if (!T.del?.running) { T.del = null; _render(); } break;
       case 'commit-del': runDiffDelete(); break;
     }
+  });
+
+  // 入力するたびに絞り込む（確定不要）。
+  // 再描画後のフォーカス復帰は app.js の render() が id を見て行う。
+  document.addEventListener('input', (e) => {
+    const el = e.target.closest('[data-sinput]');
+    if (!el) return;
+    if (el.dataset.sinput === 'q') { T.q = el.value; _render(); }
   });
 
   document.addEventListener('change', (e) => {

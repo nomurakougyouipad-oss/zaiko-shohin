@@ -18,9 +18,9 @@ import {
   collection, doc, setDoc, updateDoc,
   getDocs, onSnapshot, query, where,
   serverTimestamp, writeBatch, increment, Timestamp,
-} from './firebase.js?v=22';
-import { num } from './util.js?v=22';
-import { SITE_KEYS, totalQty } from './steel-util.js?v=22';
+} from './firebase.js?v=23';
+import { num } from './util.js?v=23';
+import { SITE_KEYS, totalQty } from './steel-util.js?v=23';
 
 const catalogCol = collection(db, 'steelCatalog');
 const stockCol = collection(db, 'steelStock');

@@ -203,6 +203,16 @@
 .st-chip .c-short { color: var(--st-accent-600); font-weight: 800; }
 .st-chip.on .c-short { color: var(--st-accent-500); }
 
+/* 検索欄（入力するたびに絞り込む。右に件数） */
+.st-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.st-search .st-input { flex: 1; min-width: 0; }
+.st-search .st-btn { flex: none; min-width: 46px; padding: 12px 10px; font-size: 18px; }
+.st-hits {
+  flex: none; font-size: 14px; font-weight: 700; white-space: nowrap;
+  color: var(--st-accent-700);
+}
+.st-main .st-search { margin: 0 0 16px; }
+
 /* パンくず */
 .st-crumbs { display: flex; gap: 6px; flex-wrap: wrap; padding: 20px 0; }
 .st-crumb {

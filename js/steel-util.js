@@ -10,7 +10,7 @@
 // ・拠点は SITES に定義。増えても在庫ドキュメントにキーが増えるだけで済む。
 // ============================================================
 
-import { num } from './util.js?v=22';
+import { num } from './util.js?v=23';
 
 // ---------- 拠点 ----------
 
@@ -129,6 +129,49 @@ export function genDims(r) {
 export function unitWeightLabel(r) {
   if (r.unitWeight == null) return '—';
   return `${r.unitWeight} ${r.weightUnit || 'kg/m'}`;
+}
+
+// ---------- 検索 ----------
+// 現場は入力がまちまちなので、比較する前に表記を揃える。
+//   ・全角の英数記号 → 半角（２０Ａ → 20a）
+//   ・大文字小文字 → 小文字
+//   ・寸法の区切り（× ✕ ＊ *）→ x（3×25 / 3x25 / 3*25 を同じ形にする）
+// 「3 25」のようなスペース区切りは、下の searchTerms で AND 条件に割れるため、
+// 結果として 3×25 と同じものが見つかる。
+
+export function normSearch(s) {
+  return String(s == null ? '' : s)
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ')
+    .toLowerCase()
+    .replace(/[×✕✖*]/g, 'x')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// 検索対象の文字列（品名・材質・サイズ・規格・スケジュール）
+export function searchHaystack(r) {
+  return normSearch([r.name, r.material, r.size, r.jis, r.sch].filter(Boolean).join(' '));
+}
+
+// スペース区切りは AND 条件。「SUS 3×25」で両方を含むものだけに絞る
+export function searchTerms(q) {
+  return normSearch(q).split(' ').filter(Boolean);
+}
+
+export function matchesTerms(hay, terms) {
+  for (const t of terms) if (hay.indexOf(t) === -1) return false;
+  return true;
+}
+
+// 「3 25」のように数字だけの語が2つ以上並んだときは、区切りを空白で打った寸法
+// （＝3×25）とみなして 3x25 の形に組み直す。
+// 単純なAND条件だと「3」と「25」を別々に含むものまで拾ってしまい、
+// 3×25 を探しているのに数百件出てしまうため。
+export function dimensionTerm(terms) {
+  if (terms.length < 2) return null;
+  if (!terms.every((t) => /^[\d.]+$/.test(t))) return null;
+  return terms.join('x');
 }
 
 // ---------- 在庫の判定 ----------
