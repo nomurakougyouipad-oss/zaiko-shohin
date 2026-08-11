@@ -235,19 +235,38 @@
 .st-crumb[disabled] { color: var(--st-text); text-decoration: none; cursor: default; }
 .st-crumbs .sep { font-size: 17px; font-weight: 700; color: var(--st-n700); }
 
-/* 一覧の行（ここだけ角丸なし） */
+/* 一覧の行（ここだけ角丸なし）
+   行そのものはボタンにしない。中に「品名側（詳細へ）」と「＋（在庫に追加）」の
+   2つのボタンを置くため（ボタンの入れ子はできない） */
 .st-list { border-top: 2px solid var(--st-n900); }
 .st-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; text-align: left; padding: 18px 16px; cursor: pointer;
+  width: 100%; padding: 0 16px 0 0;
   background: var(--st-bg); border: none; border-bottom: 2px solid var(--st-n900);
   border-radius: 0 !important; font-family: inherit; color: var(--st-text);
 }
-.st-row:hover { background: var(--st-n200); }
+.st-row-main {
+  flex: 1; min-width: 0; text-align: left; cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 18px 6px 18px 16px;
+  background: transparent; border: none; color: inherit;
+  border-radius: 0 !important; font-family: inherit;
+}
+.st-row-main:hover { background: var(--st-n200); }
 .st-row .r-name { font-weight: 700; font-size: 16px; }
-.st-row .r-sub { font-size: 14px; color: var(--st-n700); margin-top: 2px; }
+.st-row .r-sub { font-size: 14px; color: var(--st-n700); }
 .st-row .r-right { display: flex; align-items: center; gap: 8px; flex: none; }
 .st-row .r-qty { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 一覧から直接「在庫に追加」を開くボタン。軍手でも押せるよう44px確保 */
+.st-add {
+  width: 44px; height: 44px; flex: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--st-grad); border: 2px solid var(--st-accent-800); color: #fff;
+  border-radius: var(--st-radius) !important;
+  font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1;
+}
+.st-add:hover { filter: brightness(1.1); }
 
 /* タグ */
 .st-tag {

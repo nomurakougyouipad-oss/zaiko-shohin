@@ -14,16 +14,16 @@
 
 // ※ import の ?v= は sw.js の VERSION・index.html の ?v= と揃えて更新する
 //   （Service Worker の旧キャッシュと新コードが混在して起動に失敗するのを防ぐ）
-import { ready } from './firebase.js?v=24';
-import * as store from './store.js?v=24';
-import * as steel from './steel.js?v=24';
-import * as home from './home.js?v=24';
+import { ready } from './firebase.js?v=25';
+import * as store from './store.js?v=25';
+import * as steel from './steel.js?v=25';
+import * as home from './home.js?v=25';
 import {
   statusOf, recommendQty, YEN, num, toDate,
   fmtDate, fmtDateJa, fmtDateTime, monthStart,
   esc, downloadCsv, local,
   CATEGORIES, UNITS, ORDER_STATES, GREEN, ORANGE, RED,
-} from './util.js?v=24';
+} from './util.js?v=25';
 
 const appEl = document.getElementById('app');
 const modalEl = document.getElementById('modal-root');

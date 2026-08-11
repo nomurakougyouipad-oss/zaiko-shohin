@@ -14,15 +14,15 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=24';
+import * as sstore from './steel-store.js?v=25';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
   searchHaystack, searchTerms, matchesTerms, dimensionTerm,
-} from './steel-util.js?v=24';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=24';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=24';
+} from './steel-util.js?v=25';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=25';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=25';
 
 // ---------- 状態 ----------
 
@@ -80,6 +80,14 @@ function toast(msg, ms = 2200) {
 
 const person = () => local.get('person', '');
 const isOffice = () => local.get('mode', 'office') === 'office';
+
+// 「在庫に追加」で最後に選んだ拠点を端末に覚えておく。
+// 同じ工場で何十件も続けて登録するので、毎回選び直さずに済ませる。
+const SITE_MEMO_KEY = 'steelAddSite';
+function lastSite() {
+  const v = local.get(SITE_MEMO_KEY, '');
+  return SITE_KEYS.includes(v) ? v : SITE_KEYS[0];
+}
 
 // ---------- ルーティング ----------
 
@@ -372,21 +380,26 @@ function chip(label, count, short, on, actAttr) {
   </button>`;
 }
 
+// 一覧の1行。品名側をタップで品目詳細、右端の「＋」でその場で在庫に追加。
+// ボタンの入れ子はできないので、行そのものはボタンにせず中に2つ置いている。
 function rowHtml(r) {
   const short = T.mode === 'inventory' && isShort(r);
   const sub = [r.jis, r.sch].filter(Boolean).join(' ／ ');
+  const canAdd = T.mode === 'catalog' && !r.inInventory;
   return `
-  <button class="st-row" data-sact="open-item" data-id="${esc(r.id)}">
-    <span>
+  <div class="st-row">
+    <button class="st-row-main" data-sact="open-item" data-id="${esc(r.id)}">
       <span class="r-name">${esc(r.name || r.id)}</span>
-      ${sub ? `<span class="r-sub" style="display:block">${esc(sub)}</span>` : ''}
-    </span>
+      ${sub ? `<span class="r-sub">${esc(sub)}</span>` : ''}
+    </button>
     <span class="r-right">
       ${T.mode === 'inventory' ? `<span class="r-qty">${displayQty(r)}${esc(r.unit || '')}</span>` : ''}
       ${short ? `<span class="st-tag st-tag-accent">不足</span>` : ''}
-      ${T.mode === 'catalog' && !r.inInventory ? `<span class="st-tag st-tag-outline">未登録</span>` : ''}
+      ${canAdd ? `<span class="st-tag st-tag-outline">未登録</span>` : ''}
+      ${canAdd ? `<button class="st-add st-office-only" data-sact="open-add" data-id="${esc(r.id)}"
+        aria-label="${esc(r.name || r.id)}を在庫に追加" title="在庫に追加">＋</button>` : ''}
     </span>
-  </button>`;
+  </div>`;
 }
 
 function siteSegHtml() {
@@ -568,7 +581,7 @@ function viewSettings() {
         <div class="st-card-title">非表示にした品目（${hidden.length}件）</div>
         ${hidden.length ? `<div class="st-list" style="border-top:none">
           ${hidden.sort(compareItems).map((s) => `
-            <div class="st-row" style="cursor:default">
+            <div class="st-row" style="padding:14px 16px">
               <span>
                 <span class="r-name">${esc(s.name || s.id)}</span>
                 <span class="r-sub" style="display:block">合計 ${totalQty(s)}${esc(s.unit || '')}</span>
@@ -792,6 +805,10 @@ function viewPc() {
         ${T.mode === 'inventory' && isShort(r) ? `<span class="st-tag st-tag-accent">不足</span>` : ''}
         ${T.mode === 'catalog' && !r.inInventory ? `<span class="st-tag st-tag-outline">未登録</span>` : ''}
       </td>
+      <td style="width:56px">
+        ${T.mode === 'catalog' && !r.inInventory ? `<button class="st-add st-office-only" data-sact="open-add" data-id="${esc(r.id)}"
+          aria-label="${esc(r.name || r.id)}を在庫に追加" title="在庫に追加">＋</button>` : ''}
+      </td>
     </tr>`).join('');
 
   const empty = emptyStateHtml();
@@ -829,7 +846,7 @@ function viewPc() {
             <thead><tr>
               <th>品目</th><th>規格</th>
               ${SITES.map((s) => `<th class="num" style="text-align:right">${esc(s.label)}</th>`).join('')}
-              <th>状態</th>
+              <th>状態</th><th></th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -971,20 +988,28 @@ function bindEvents() {
         break;
       }
 
-      // 在庫に追加
-      case 'open-add': T.add = { id, site: 'matsumae', qty: 1 }; _render(); break;
+      // 在庫に追加。数量は1から始める（そのまま「追加する」を押せば1本入る）
+      case 'open-add': T.add = { id, site: lastSite(), qty: 1 }; _render(); break;
       case 'close-add': T.add = null; _render(); break;
-      case 'add-site': if (T.add) { T.add.site = el.dataset.site; _render(); } break;
+      case 'add-site':
+        if (T.add) {
+          T.add.site = el.dataset.site;
+          local.set(SITE_MEMO_KEY, T.add.site); // 次に開くときはこの拠点で始める
+          _render();
+        }
+        break;
       case 'add-qty': if (T.add) { T.add.qty = Math.max(1, T.add.qty + parseInt(el.dataset.n, 10)); _render(); } break;
       case 'commit-add': {
         if (!T.add) break;
         const r = findRecord(T.add.id);
         if (!r) break;
         sstore.addToInventory(r, { site: T.add.site, qty: T.add.qty, person: person() });
+        local.set(SITE_MEMO_KEY, T.add.site);
+        const label = `${r.name || r.id} を${siteLabel(T.add.site)}に ${T.add.qty}${r.unit || ''} 追加しました`;
+        // モーダルを閉じるだけ。モード・絞り込み・検索文字はそのまま残すので、
+        // 続けて次の品目の「＋」を押せる（追加した品目は一覧から「未登録」が消える）
         T.add = null;
-        T.mode = 'inventory';
-        toast('在庫に追加しました');
-        goPath([]);
+        toast(label, 2600);
         break;
       }
 

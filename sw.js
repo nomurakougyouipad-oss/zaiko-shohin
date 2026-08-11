@@ -4,7 +4,7 @@
 // ・Firebase/フォント等のクロスオリジンは常にネットワーク
 // ============================================================
 
-const VERSION = 'v24';
+const VERSION = 'v25';
 const CACHE = 'zaiko-shohin-' + VERSION;
 
 // アプリシェル（オフラインでも起動できる最小セット）
@@ -13,20 +13,20 @@ const CACHE = 'zaiko-shohin-' + VERSION;
 const SHELL = [
   './',
   './index.html',
-  './app.css?v=24',
-  './steel.css?v=24',
+  './app.css?v=25',
+  './steel.css?v=25',
   './manifest.webmanifest',
-  './firebase-config.js?v=24',
-  './js/app.js?v=24',
-  './js/util.js?v=24',
-  './js/firebase.js?v=24',
-  './js/store.js?v=24',
-  './js/image.js?v=24',
-  './js/home.js?v=24',
-  './js/steel.js?v=24',
-  './js/steel-util.js?v=24',
-  './js/steel-store.js?v=24',
-  './js/csv.js?v=24',
+  './firebase-config.js?v=25',
+  './js/app.js?v=25',
+  './js/util.js?v=25',
+  './js/firebase.js?v=25',
+  './js/store.js?v=25',
+  './js/image.js?v=25',
+  './js/home.js?v=25',
+  './js/steel.js?v=25',
+  './js/steel-util.js?v=25',
+  './js/steel-store.js?v=25',
+  './js/csv.js?v=25',
   './icons/icon-v2-48.png',
   './icons/icon-v2-120.png',
   './icons/icon-v2-180.png',

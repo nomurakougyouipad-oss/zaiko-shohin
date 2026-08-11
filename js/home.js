@@ -8,8 +8,8 @@
 // 消耗品側のデータは app.js が持っているので、init() で読み出し口を受け取る。
 // ============================================================
 
-import * as steel from './steel.js?v=24';
-import { esc } from './util.js?v=24';
+import * as steel from './steel.js?v=25';
+import { esc } from './util.js?v=25';
 
 const H = { q: '' };
 
@@ -41,13 +41,13 @@ export function view() {
     const rows = [...steel.search(q), ..._consumables.search(q)];
     results = rows.length
       ? `<div class="home-results">${rows.map((r) => `
-          <button class="st-row" data-hact="goto" data-hash="${esc(r.hash)}">
-            <span>
+          <div class="st-row">
+            <button class="st-row-main" data-hact="goto" data-hash="${esc(r.hash)}">
               <span class="r-name" style="font-size:14px">${esc(r.name)}</span>
-              <span class="r-sub" style="display:block;font-size:12px">${esc(r.sub)}</span>
-            </span>
-            ${r.isShort ? `<span class="st-tag st-tag-accent">不足</span>` : ''}
-          </button>`).join('')}</div>`
+              <span class="r-sub" style="font-size:12px">${esc(r.sub)}</span>
+            </button>
+            ${r.isShort ? `<span class="r-right"><span class="st-tag st-tag-accent">不足</span></span>` : ''}
+          </div>`).join('')}</div>`
       : `<div class="home-results"><div class="home-empty">「${esc(q)}」に一致する品目はありません。</div></div>`;
   }
 
