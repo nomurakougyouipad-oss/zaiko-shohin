@@ -14,15 +14,15 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=23';
+import * as sstore from './steel-store.js?v=24';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
   searchHaystack, searchTerms, matchesTerms, dimensionTerm,
-} from './steel-util.js?v=23';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=23';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=23';
+} from './steel-util.js?v=24';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=24';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=24';
 
 // ---------- 状態 ----------
 
@@ -34,7 +34,12 @@ const T = {
   mode: 'inventory',      // 'inventory'（在庫）| 'catalog'（品目追加）
   site: 'matsumae',       // 表示中の拠点（'total' で合計）
   path: [],               // 絞り込みの選択（[種類, 段1, 段2...]）
-  q: '',                  // 検索語。絞り込みの現在地の中だけを対象にする
+  // 検索語。絞り込みの現在地の中だけを対象にする。
+  // q は入力欄に表示している文字、qApplied は実際に絞り込みに使う文字。
+  // 日本語入力の変換中（「hあいkあnn」のような未確定状態）は q だけ更新し、
+  // qApplied は確定するまで据え置く。変換途中の文字で検索が走って0件になるのを防ぐため。
+  q: '',
+  qApplied: '',
 
   route: { view: 'browse' },
   detailId: null,
@@ -51,6 +56,7 @@ const T = {
 let _render = () => {};
 let _toastTimer = null;
 let started = false;
+let composing = false; // 日本語入力の変換中か（IMEの未確定状態）
 
 export function init({ render }) {
   _render = render;
@@ -111,7 +117,7 @@ export function enter() {
   T.mode = 'inventory';
   T.path = [];
   T.site = 'matsumae';
-  T.q = '';
+  T.q = ''; T.qApplied = '';
   location.hash = '#/steel';
 }
 
@@ -187,7 +193,7 @@ function scopedRecords() {
 
 // 絞り込みの現在地 ＋ 検索語。検索は絞り込みを解除せず、その中だけを対象にする。
 function searchedRecords() {
-  const terms = searchTerms(T.q);
+  const terms = searchTerms(T.qApplied);
   const scoped = scopedRecords();
   if (!terms.length) return { list: scoped, searching: false };
   const hay = (r) => r._hay || searchHaystack(r);
@@ -338,15 +344,18 @@ function viewBrowse() {
 // 一度に描く行数の上限。4,000件を一気にDOM化すると入力が固まるため
 const LIST_LIMIT = 200;
 
-// 検索欄。id は スマホ版・PC版で分ける（同じ画面が2回描かれるため）
+// 検索欄。id は スマホ版・PC版で分ける（同じ画面が2回描かれるため）。
+// 消す×は入力欄の中に1つだけ置く（ブラウザ標準の×はCSSで消してある）。
 function searchBoxHtml(id, hitCount) {
   const scopeLabel = T.path.length ? `${catLabelOf(T.path[0])}の中` : (T.mode === 'inventory' ? '在庫' : 'カタログ全体');
   return `
   <div class="st-search">
-    <input id="${id}" class="st-input" type="search" value="${esc(T.q)}"
-      placeholder="品名・材質・サイズで検索（${esc(scopeLabel)}）"
-      data-sinput="q" autocomplete="off" autocorrect="off" spellcheck="false">
-    ${T.q.trim() ? `<button class="st-btn" data-sact="clear-q" aria-label="検索をやめる">×</button>` : ''}
+    <div class="st-search-box">
+      <input id="${id}" class="st-input" type="search" value="${esc(T.q)}"
+        placeholder="品名・材質・サイズで検索（${esc(scopeLabel)}）"
+        data-sinput="q" autocomplete="off" autocorrect="off" spellcheck="false">
+      ${T.q ? `<button class="st-clear" data-sact="clear-q" aria-label="入力した文字を消す" title="入力した文字を消す">×</button>` : ''}
+    </div>
     ${hitCount != null ? `<span class="st-hits">${hitCount}件</span>` : ''}
   </div>`;
 }
@@ -917,13 +926,13 @@ function bindEvents() {
 
       case 'toggle-mode':
         T.mode = T.mode === 'inventory' ? 'catalog' : 'inventory';
-        T.q = '';
+        T.q = ''; T.qApplied = '';
         if (T.mode === 'catalog') ensureCatalog();
         goPath([]);
         _render();
         break;
 
-      case 'clear-q': T.q = ''; _render(); break;
+      case 'clear-q': T.q = ''; T.qApplied = ''; composing = false; _render(); break;
 
       case 'set-site': T.site = el.dataset.site; _render(); break;
       case 'detail-site': T.detailSite = el.dataset.site; _render(); break;
@@ -1007,10 +1016,29 @@ function bindEvents() {
 
   // 入力するたびに絞り込む（確定不要）。
   // 再描画後のフォーカス復帰は app.js の render() が id を見て行う。
+  //
+  // ただし日本語入力の変換中は絞り込まない。変換中に再描画すると入力欄ごと
+  // 作り直されて変換が壊れるため、確定（compositionend）まで待つ。
+  document.addEventListener('compositionstart', (e) => {
+    if (e.target.closest('[data-sinput="q"]')) composing = true;
+  });
+  document.addEventListener('compositionend', (e) => {
+    const el = e.target.closest('[data-sinput="q"]');
+    if (!el) return;
+    composing = false;
+    T.q = el.value;
+    T.qApplied = el.value;
+    _render();
+  });
+
   document.addEventListener('input', (e) => {
     const el = e.target.closest('[data-sinput]');
-    if (!el) return;
-    if (el.dataset.sinput === 'q') { T.q = el.value; _render(); }
+    if (!el || el.dataset.sinput !== 'q') return;
+    // 変換中でも表示用の値は控えておく。別の理由で再描画が起きても打った文字が消えない
+    T.q = el.value;
+    if (composing) return;
+    T.qApplied = el.value;
+    _render();
   });
 
   document.addEventListener('change', (e) => {

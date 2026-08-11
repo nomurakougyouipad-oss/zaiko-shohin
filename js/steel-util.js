@@ -10,7 +10,7 @@
 // ・拠点は SITES に定義。増えても在庫ドキュメントにキーが増えるだけで済む。
 // ============================================================
 
-import { num } from './util.js?v=23';
+import { num } from './util.js?v=24';
 
 // ---------- 拠点 ----------
 
@@ -133,17 +133,35 @@ export function unitWeightLabel(r) {
 
 // ---------- 検索 ----------
 // 現場は入力がまちまちなので、比較する前に表記を揃える。
+//   ・半角カナ → 全角カタカナ（ｴﾙﾎﾞ → エルボ）
 //   ・全角の英数記号 → 半角（２０Ａ → 20a）
 //   ・大文字小文字 → 小文字
+//   ・ひらがな → カタカナ（えるぼ → エルボ）
 //   ・寸法の区切り（× ✕ ＊ *）→ x（3×25 / 3x25 / 3*25 を同じ形にする）
-// 「3 25」のようなスペース区切りは、下の searchTerms で AND 条件に割れるため、
-// 結果として 3×25 と同じものが見つかる。
+// 空白区切りは searchTerms で AND 条件になる。
+// ただし数字だけが並ぶときは dimensionTerm が寸法として組み直す。
+
+// 半角カナ → 全角カタカナ（ｴﾙﾎﾞ → エルボ）。濁点・半濁点は1文字にまとめる。
+const HANKAKU_KANA = 'ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
+const ZENKAKU_KANA = 'ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン';
+
+function kanaToZenkaku(s) {
+  return s
+    .replace(/ｳﾞ/g, 'ヴ')
+    // 濁点つき（ｶﾞ→ガ）。全角カタカナは清音の次のコードが濁音なので +1 で作れる
+    .replace(/([ｶ-ﾄﾊ-ﾎ])ﾞ/g, (_, c) => String.fromCharCode(ZENKAKU_KANA.charCodeAt(HANKAKU_KANA.indexOf(c)) + 1))
+    // 半濁点つき（ﾊﾟ→パ）は +2
+    .replace(/([ﾊ-ﾎ])ﾟ/g, (_, c) => String.fromCharCode(ZENKAKU_KANA.charCodeAt(HANKAKU_KANA.indexOf(c)) + 2))
+    .replace(/[ｦ-ﾝ]/g, (c) => ZENKAKU_KANA[HANKAKU_KANA.indexOf(c)] || c);
+}
 
 export function normSearch(s) {
-  return String(s == null ? '' : s)
+  return kanaToZenkaku(String(s == null ? '' : s))
     .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
     .replace(/　/g, ' ')
     .toLowerCase()
+    // ひらがな → カタカナ（えるぼ → エルボ）。品名はカタカナ表記なので寄せ先はカタカナ
+    .replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
     .replace(/[×✕✖*]/g, 'x')
     .replace(/\s+/g, ' ')
     .trim();

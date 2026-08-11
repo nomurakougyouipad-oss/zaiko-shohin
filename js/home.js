@@ -8,8 +8,8 @@
 // 消耗品側のデータは app.js が持っているので、init() で読み出し口を受け取る。
 // ============================================================
 
-import * as steel from './steel.js?v=23';
-import { esc } from './util.js?v=23';
+import * as steel from './steel.js?v=24';
+import { esc } from './util.js?v=24';
 
 const H = { q: '' };
 

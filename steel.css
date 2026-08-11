@@ -203,10 +203,22 @@
 .st-chip .c-short { color: var(--st-accent-600); font-weight: 800; }
 .st-chip.on .c-short { color: var(--st-accent-500); }
 
-/* 検索欄（入力するたびに絞り込む。右に件数） */
-.st-search { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.st-search .st-input { flex: 1; min-width: 0; }
-.st-search .st-btn { flex: none; min-width: 46px; padding: 12px 10px; font-size: 18px; }
+/* 検索欄（入力するたびに絞り込む。右に件数）
+   消す×は入力欄の中に1つだけ。ブラウザ標準の×は下で消している
+   （放っておくと欄の中と外に×が2つ並んで、どちらが何か分からなくなる） */
+.st-search { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.st-search-box { position: relative; flex: 1; min-width: 0; }
+.st-search-box .st-input { width: 100%; padding-right: 48px; }
+.st-input::-webkit-search-cancel-button,
+.st-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.st-clear {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 42px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--st-n700);
+  font-family: inherit; font-size: 22px; line-height: 1;
+}
+.st-clear:hover { color: var(--st-text); background: var(--st-n200); }
 .st-hits {
   flex: none; font-size: 14px; font-weight: 700; white-space: nowrap;
   color: var(--st-accent-700);
