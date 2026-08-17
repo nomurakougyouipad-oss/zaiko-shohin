@@ -18,9 +18,9 @@ import {
   collection, doc, setDoc, updateDoc,
   getDocs, onSnapshot, query, where,
   serverTimestamp, writeBatch, increment, Timestamp,
-} from './firebase.js?v=25';
-import { num } from './util.js?v=25';
-import { SITE_KEYS, totalQty } from './steel-util.js?v=25';
+} from './firebase.js?v=26';
+import { num } from './util.js?v=26';
+import { SITE_KEYS, totalQty } from './steel-util.js?v=26';
 
 const catalogCol = collection(db, 'steelCatalog');
 const stockCol = collection(db, 'steelStock');
@@ -144,6 +144,41 @@ export function setSafety(id, safety) {
 export function setLocation(id, location) {
   updateDoc(doc(stockCol, id), { location: String(location || ''), updatedAt: serverTimestamp() })
     .catch((e) => console.error('保管場所の更新に失敗:', e));
+}
+
+// ---------- 在庫から削除 ----------
+// カタログ（steelCatalog）には手を付けず、steelStock と steelLogs だけを消す。
+// 消した品目は「未登録」に戻るだけなので、カタログから探せばまた追加できる。
+
+// 1品目を在庫から削除（拠点在庫と入出庫履歴も消える）
+export async function deleteFromInventory(id) {
+  const snap = await getDocs(query(logsCol, where('itemId', '==', id)));
+  const refs = snap.docs.map((d) => d.ref);
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 400).forEach((r) => batch.delete(r));
+    await batch.commit();
+  }
+  const batch = writeBatch(db);
+  batch.delete(doc(stockCol, id));
+  await batch.commit();
+  return refs.length; // 消した履歴の件数
+}
+
+// 在庫を全件削除（テストデータの一括消去用）。カタログは残す。
+export async function deleteAllStock({ onProgress } = {}) {
+  const [stockSnap, logSnap] = await Promise.all([getDocs(stockCol), getDocs(logsCol)]);
+  const refs = [...logSnap.docs.map((d) => d.ref), ...stockSnap.docs.map((d) => d.ref)];
+  let done = 0;
+  for (let i = 0; i < refs.length; i += 400) {
+    const chunk = refs.slice(i, i + 400);
+    const batch = writeBatch(db);
+    chunk.forEach((r) => batch.delete(r));
+    await batch.commit();
+    done += chunk.length;
+    if (onProgress) onProgress(done, refs.length);
+  }
+  return { items: stockSnap.size, logs: logSnap.size };
 }
 
 // ---------- CSV一括取込 ----------

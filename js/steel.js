@@ -14,15 +14,15 @@
 // （消耗品側の data-act などとは名前を分けてあるので、委譲が衝突しない）
 // ============================================================
 
-import * as sstore from './steel-store.js?v=25';
+import * as sstore from './steel-store.js?v=26';
 import {
   STEEL_CATEGORIES, SITES, SITE_KEYS,
   catLabelOf, levelsOf, siteLabel,
   totalQty, isShort, inStockList, compareSize, compareItems, unitWeightLabel,
   searchHaystack, searchTerms, matchesTerms, dimensionTerm,
-} from './steel-util.js?v=25';
-import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=25';
-import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=25';
+} from './steel-util.js?v=26';
+import { esc, num, YEN, fmtDateTime, local, downloadCsv } from './util.js?v=26';
+import { parseCatalogCsv, decodeCsv, buildCatalogRows } from './csv.js?v=26';
 
 // ---------- 状態 ----------
 
@@ -517,6 +517,18 @@ function viewItem() {
             ${r.hidden ? '一覧に再表示する' : '一覧から非表示にする'}
           </button>
         </div>
+        <div class="st-note st-office-only" style="margin-top:-8px">
+          非表示は一覧から隠すだけで、在庫数と履歴はそのまま残ります。
+        </div>
+
+        <div class="st-card st-office-only">
+          <div class="st-card-title">在庫から削除</div>
+          <div class="st-note" style="margin:0 0 12px">
+            拠点の在庫数と入出庫履歴を消して、この品目を「未登録」に戻します。<br>
+            カタログには残るので、探せばまた在庫に追加できます。
+          </div>
+          <button class="st-btn st-btn-danger st-btn-block" data-sact="delete-stock">在庫から削除する</button>
+        </div>
 
         <div>
           <div class="st-label">入出庫の履歴</div>
@@ -537,6 +549,8 @@ function viewItem() {
 function viewSettings() {
   const hidden = (T.stock || []).filter((s) => s.inInventory && s.hidden);
   const stockCount = (T.stock || []).filter(inStockList).length;
+  // 全件削除の対象は steelStock の全ドキュメント（非表示・在庫0のものも含む）
+  const allStockCount = (T.stock || []).length;
   const catCount = T.catalogState === 'ready' ? (T.catalog || []).length : null;
 
   return `
@@ -573,6 +587,19 @@ function viewSettings() {
           <strong>在庫に出している品目は削除しません。</strong>
         </div>
         <button class="st-btn st-btn-danger st-btn-block" data-sact="pick-diff">CSVを選んで差分削除</button>
+      </div>
+
+      <div class="st-card st-office-only">
+        <div class="st-card-title">在庫を全件削除</div>
+        <div class="st-note" style="margin:0 0 12px">
+          在庫に出している品目をすべて「未登録」に戻します（拠点の在庫数と入出庫履歴も削除）。<br>
+          テストデータをまとめて消すための機能です。<strong>カタログは消えません。</strong>
+        </div>
+        <div class="st-kv"><span>削除される品目</span><span>${allStockCount} 件</span></div>
+        <button class="st-btn st-btn-danger st-btn-block" data-sact="delete-all-stock"
+          style="margin-top:12px" ${allStockCount ? '' : 'disabled'}>
+          ${allStockCount ? `在庫 ${allStockCount} 件をすべて削除する` : '削除できる在庫がありません'}
+        </button>
       </div>
 
       ${!isOffice() ? `<div class="st-warn">現場モードのため、CSV取込などの編集操作は使えません。設定から事務所モードに切り替えてください。</div>` : ''}
@@ -921,7 +948,7 @@ export function search(q) {
 // ---------- イベント ----------
 
 function bindEvents() {
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-sact]');
     if (!el) return;
     // モーダルの中身をクリックしたときに背景の「閉じる」が反応しないように
@@ -975,6 +1002,40 @@ function bindEvents() {
         break;
       }
       case 'unhide': sstore.setHidden(id, false); toast('再表示しました'); break;
+
+      // 在庫から削除（カタログには残す = 「未登録」に戻す）
+      case 'delete-stock': {
+        const r = findRecord(T.route.id);
+        if (!r) break;
+        if (!confirm('この品目を在庫から削除します。拠点の在庫数と入出庫履歴も削除されます。よろしいですか？')) break;
+        const name = r.name || r.id;
+        try {
+          await sstore.deleteFromInventory(r.id);
+          toast(`${name} を在庫から削除しました`);
+          goPath(T.path); // 一覧へ戻る（詳細はもう表示できない）
+        } catch (e) {
+          console.error('在庫からの削除に失敗:', e);
+          toast('削除できませんでした。電波のある場所でもう一度お試しください。');
+        }
+        break;
+      }
+
+      // 在庫を全件削除（テストデータの一括消去）。二重に確認する。
+      case 'delete-all-stock': {
+        const n = (T.stock || []).length;
+        if (!n) break;
+        if (!confirm(`在庫に出している ${n} 件をすべて削除します。\n拠点の在庫数と入出庫履歴も削除されます。\n（カタログは消えません）\n\nよろしいですか？`)) break;
+        if (!confirm(`最終確認です。\n本当に在庫 ${n} 件を削除しますか？\nこの操作は取り消せません。`)) break;
+        toast('在庫を削除しています…', 30000);
+        try {
+          const res = await sstore.deleteAllStock();
+          toast(`在庫 ${res.items} 件と履歴 ${res.logs} 件を削除しました`);
+        } catch (e) {
+          console.error('在庫の全件削除に失敗:', e);
+          toast('削除できませんでした。電波のある場所でもう一度お試しください。');
+        }
+        break;
+      }
 
       case 'edit-safety': {
         const r = findRecord(T.route.id);

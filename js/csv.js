@@ -8,7 +8,7 @@
 //   （カタログ情報だけ直したいときに、うっかり在庫を0にしてしまう事故を防ぐ）
 // ============================================================
 
-import { CATEGORY_KEYS, itemKey, genName, genDims } from './steel-util.js?v=25';
+import { CATEGORY_KEYS, itemKey, genName, genDims } from './steel-util.js?v=26';
 
 // ---------- 列定義 ----------
 // key    … アプリ内部のフィールド名
